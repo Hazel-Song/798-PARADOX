@@ -3,6 +3,14 @@ import { GridSystem } from '@/lib/map-grid/GridSystem';
 import { Position } from '@/types/map-grid';
 import { AIEvaluationService } from '@/lib/ai/AIEvaluationService';
 
+// 限制区域类型定义
+export interface RestrictedZone {
+  centerX: number;
+  centerY: number;
+  radius: number;
+  type: 'passed' | 'evaluating';
+}
+
 export class TrajectorySystem {
   private gridSystem: GridSystem;
   private character: Character;
@@ -18,6 +26,7 @@ export class TrajectorySystem {
   private evaluationCount: number = 0;
   private isPaused: boolean = false;
   private lastKeywords: string[] = [];
+  private restrictedZones: RestrictedZone[] = []; // 新增：限制区域列表
 
   constructor(gridSystem: GridSystem, artistPersonality: ArtistPersonality, artistId?: string) {
     this.gridSystem = gridSystem;
@@ -151,36 +160,61 @@ export class TrajectorySystem {
       const gridInfo = this.gridSystem.getGridInfo();
       const canvasDims = this.gridSystem.getCanvasDimensions();
 
-      // 确保在网格范围内：0到gridInfo.width-1, 0到gridInfo.height-1
-      const randomGridX = Math.floor(Math.random() * gridInfo.width);
-      const randomGridY = Math.floor(Math.random() * gridInfo.height);
+      let attempts = 0;
+      let validPoint = false;
+      let clampedX = 0;
+      let clampedY = 0;
+      let randomGridX = 0;
+      let randomGridY = 0;
 
-      // 转换到画布坐标 - 在网格单元中心位置
-      const actualCellWidth = canvasDims.width / gridInfo.width;
-      const actualCellHeight = canvasDims.height / gridInfo.height;
+      // 尝试最多50次生成不在限制区域内的点
+      while (!validPoint && attempts < 50) {
+        // 确保在网格范围内：0到gridInfo.width-1, 0到gridInfo.height-1
+        randomGridX = Math.floor(Math.random() * gridInfo.width);
+        randomGridY = Math.floor(Math.random() * gridInfo.height);
 
-      const nextCanvasX = (randomGridX + 0.5) * actualCellWidth;
-      const nextCanvasY = (randomGridY + 0.5) * actualCellHeight;
+        // 转换到画布坐标 - 在网格单元中心位置
+        const actualCellWidth = canvasDims.width / gridInfo.width;
+        const actualCellHeight = canvasDims.height / gridInfo.height;
 
-      // 🚨 使用与移动逻辑完全相同的边界检查
-      const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3;
-      const minValidX = margin;
-      const minValidY = margin;
-      const maxValidX = canvasDims.width - margin;
-      const maxValidY = canvasDims.height - margin; // 关键：使用GridSystem的canvas高度
+        const nextCanvasX = (randomGridX + 0.5) * actualCellWidth;
+        const nextCanvasY = (randomGridY + 0.5) * actualCellHeight;
 
-      const clampedX = Math.max(minValidX, Math.min(maxValidX, nextCanvasX));
-      const clampedY = Math.max(minValidY, Math.min(maxValidY, nextCanvasY));
+        // 🚨 使用与移动逻辑完全相同的边界检查
+        const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3;
+        const minValidX = margin;
+        const minValidY = margin;
+        const maxValidX = canvasDims.width - margin;
+        const maxValidY = canvasDims.height - margin; // 关键：使用GridSystem的canvas高度
 
-      // 验证生成的轨迹点不会超出边界
-      if (clampedY >= maxValidY) {
-        console.error('🚨 TRAJECTORY GENERATION: Lower boundary violation prevented!', {
-          randomGridY,
-          nextCanvasY,
-          clampedY,
-          maxValidY,
-          canvasHeight: canvasDims.height
-        });
+        clampedX = Math.max(minValidX, Math.min(maxValidX, nextCanvasX));
+        clampedY = Math.max(minValidY, Math.min(maxValidY, nextCanvasY));
+
+        // 验证生成的轨迹点不会超出边界
+        if (clampedY >= maxValidY) {
+          console.error('🚨 TRAJECTORY GENERATION: Lower boundary violation prevented!', {
+            randomGridY,
+            nextCanvasY,
+            clampedY,
+            maxValidY,
+            canvasHeight: canvasDims.height
+          });
+        }
+
+        // 检查是否在限制区域内
+        if (!this.isPointInRestrictedZone(clampedX, clampedY)) {
+          validPoint = true;
+        } else {
+          attempts++;
+          console.log(`🔄 Attempt ${attempts}: Point in restricted zone, regenerating...`);
+        }
+      }
+
+      // 如果50次都没找到有效点，使用当前位置附近的点
+      if (!validPoint) {
+        console.warn('⚠️ Could not find valid point after 50 attempts, using fallback position');
+        clampedX = currentCanvasX;
+        clampedY = currentCanvasY;
       }
 
       const action = Math.random() < 0.3 ? 'evaluate' : 'observe'; // 30%概率评价
@@ -648,26 +682,49 @@ export class TrajectorySystem {
       const gridInfo = this.gridSystem.getGridInfo();
       const canvasDims = this.gridSystem.getCanvasDimensions();
 
-      // 确保在网格范围内：0到gridInfo.width-1, 0到gridInfo.height-1
-      const randomGridX = Math.floor(Math.random() * gridInfo.width);
-      const randomGridY = Math.floor(Math.random() * gridInfo.height);
+      let attempts = 0;
+      let validPoint = false;
+      let clampedX = 0;
+      let clampedY = 0;
+      let randomGridX = 0;
+      let randomGridY = 0;
 
-      // 转换到画布坐标 - 在网格单元中心位置
-      const actualCellWidth = canvasDims.width / gridInfo.width;
-      const actualCellHeight = canvasDims.height / gridInfo.height;
+      // 尝试最多50次生成不在限制区域内的点
+      while (!validPoint && attempts < 50) {
+        // 确保在网格范围内：0到gridInfo.width-1, 0到gridInfo.height-1
+        randomGridX = Math.floor(Math.random() * gridInfo.width);
+        randomGridY = Math.floor(Math.random() * gridInfo.height);
 
-      const nextCanvasX = (randomGridX + 0.5) * actualCellWidth;
-      const nextCanvasY = (randomGridY + 0.5) * actualCellHeight;
+        // 转换到画布坐标 - 在网格单元中心位置
+        const actualCellWidth = canvasDims.width / gridInfo.width;
+        const actualCellHeight = canvasDims.height / gridInfo.height;
 
-      // 🚨 使用与移动逻辑完全相同的边界检查
-      const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3;
-      const minValidX = margin;
-      const minValidY = margin;
-      const maxValidX = canvasDims.width - margin;
-      const maxValidY = canvasDims.height - margin; // 关键：使用GridSystem的canvas高度
+        const nextCanvasX = (randomGridX + 0.5) * actualCellWidth;
+        const nextCanvasY = (randomGridY + 0.5) * actualCellHeight;
 
-      const clampedX = Math.max(minValidX, Math.min(maxValidX, nextCanvasX));
-      const clampedY = Math.max(minValidY, Math.min(maxValidY, nextCanvasY));
+        // 🚨 使用与移动逻辑完全相同的边界检查
+        const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3;
+        const minValidX = margin;
+        const minValidY = margin;
+        const maxValidX = canvasDims.width - margin;
+        const maxValidY = canvasDims.height - margin; // 关键：使用GridSystem的canvas高度
+
+        clampedX = Math.max(minValidX, Math.min(maxValidX, nextCanvasX));
+        clampedY = Math.max(minValidY, Math.min(maxValidY, nextCanvasY));
+
+        // 检查是否在限制区域内
+        if (!this.isPointInRestrictedZone(clampedX, clampedY)) {
+          validPoint = true;
+        } else {
+          attempts++;
+        }
+      }
+
+      // 如果50次都没找到有效点，跳过这个点
+      if (!validPoint) {
+        console.warn('⚠️ Could not find valid point for new trajectory after 50 attempts, skipping...');
+        continue;
+      }
 
       newTrajectory.push({
         x: clampedX,
@@ -888,5 +945,32 @@ export class TrajectorySystem {
       hash = hash & hash; // Convert to 32bit integer
     }
     return Math.abs(hash);
+  }
+
+  // 新增：检查点是否在限制区域内
+  private isPointInRestrictedZone(x: number, y: number): boolean {
+    for (const zone of this.restrictedZones) {
+      const distance = Math.sqrt(
+        Math.pow(x - zone.centerX, 2) + Math.pow(y - zone.centerY, 2)
+      );
+
+      // 如果点在圆形区域内（距离小于半径），返回true
+      if (distance < zone.radius) {
+        console.log('🚫 Point restricted:', { x, y, zone: zone.type, distance, radius: zone.radius });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // 新增：更新限制区域列表
+  public updateRestrictedZones(zones: RestrictedZone[]): void {
+    this.restrictedZones = zones;
+    console.log('🔄 Updated restricted zones:', zones.length, zones);
+  }
+
+  // 新增：获取当前限制区域列表
+  public getRestrictedZones(): RestrictedZone[] {
+    return [...this.restrictedZones];
   }
 }

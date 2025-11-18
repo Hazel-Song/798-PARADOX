@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { GridSystem } from '@/lib/map-grid/GridSystem';
-import { TrajectorySystem } from '@/lib/character/TrajectorySystem';
+import { TrajectorySystem, RestrictedZone } from '@/lib/character/TrajectorySystem';
 import { CharacterRenderer } from '@/lib/character/CharacterRenderer';
 import { Character, ArtistPersonality } from '@/types/character';
 
@@ -23,6 +23,7 @@ interface WanderingCharacterProps {
     lastKeywords: string[];
     timeRemaining: number;
   }) => void;
+  restrictedZones?: RestrictedZone[]; // 新增：限制区域列表
 }
 
 export interface WanderingCharacterRef {
@@ -57,7 +58,8 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
   onAIEvaluation,
   apiKey,
   baseUrl,
-  onDebugDataUpdate
+  onDebugDataUpdate,
+  restrictedZones = [] // 默认空数组
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const trajectorySystemRef = useRef<TrajectorySystem | null>(null);
@@ -210,6 +212,14 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
       // }
     };
   }, [gridSystem]);
+
+  // 更新限制区域
+  useEffect(() => {
+    if (trajectorySystemRef.current && restrictedZones) {
+      console.log('🔄 WanderingCharacter: Updating restricted zones for artist', artistId, restrictedZones.length);
+      trajectorySystemRef.current.updateRestrictedZones(restrictedZones);
+    }
+  }, [restrictedZones, artistId]);
 
   // 暴露控制方法给父组件
   useImperativeHandle(ref, () => ({

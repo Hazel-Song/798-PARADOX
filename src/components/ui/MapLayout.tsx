@@ -20,6 +20,7 @@ import { GridSystem } from '@/lib/map-grid/GridSystem';
 import { Character } from '@/types/character';
 import { timelineData } from '@/lib/data/timelineData';
 import { PeriodSnapshot } from '@/types/periodSnapshot';
+import { RestrictedZone } from '@/lib/character/TrajectorySystem';
 
 const MapLayout = () => {
   // 添加滑块样式
@@ -132,6 +133,9 @@ const MapLayout = () => {
   // 多个艺术家状态 - 只有初始艺术家
   const [artists, setArtists] = useState<Array<{ id: string; ref: React.RefObject<WanderingCharacterRef> }>>([]);
 
+  // 限制区域状态
+  const [restrictedZones, setRestrictedZones] = useState<RestrictedZone[]>([]);
+
   // 初始化第一个艺术家
   useEffect(() => {
     if (artists.length === 0) {
@@ -141,6 +145,67 @@ const MapLayout = () => {
     }
     console.log('🔍 Current artists state:', artists.length, artists);
   }, [artists.length]);
+
+  // 计算限制区域 - 基于工作室圆形状态和政府评估位置
+  useEffect(() => {
+    const updateRestrictedZones = () => {
+      const zones: RestrictedZone[] = [];
+
+      // 1. 添加所有passed的工作室圆形作为限制区域
+      if (studioCirclesRef.current) {
+        const circles = studioCirclesRef.current.getCircles();
+        circles.forEach(circle => {
+          if (circle.evaluationResult === 'passed') {
+            zones.push({
+              centerX: circle.centerX,
+              centerY: circle.centerY,
+              radius: circle.radius,
+              type: 'passed'
+            });
+          }
+        });
+      }
+
+      // 2. 添加政府当前评估位置作为限制区域（如果政府正在评估）
+      if (wanderingGovernmentRef.current) {
+        const governmentPos = wanderingGovernmentRef.current.getCurrentPosition();
+        const isPaused = wanderingGovernmentRef.current.isPaused();
+
+        // 如果政府没有暂停（即正在活动），且有位置信息
+        if (!isPaused && governmentPos && (governmentPos.x !== 0 || governmentPos.y !== 0)) {
+          // 检查政府是否正在评估某个圆形
+          const circles = studioCirclesRef.current?.getCircles() || [];
+          const evaluatingCircle = circles.find(circle => {
+            const distance = Math.sqrt(
+              Math.pow(circle.centerX - governmentPos.x, 2) +
+              Math.pow(circle.centerY - governmentPos.y, 2)
+            );
+            return distance < 5; // 如果政府在圆心附近5px内，认为正在评估
+          });
+
+          if (evaluatingCircle) {
+            zones.push({
+              centerX: evaluatingCircle.centerX,
+              centerY: evaluatingCircle.centerY,
+              radius: evaluatingCircle.radius,
+              type: 'evaluating'
+            });
+          }
+        }
+      }
+
+      // 更新限制区域状态
+      setRestrictedZones(zones);
+    };
+
+    // 初始更新
+    updateRestrictedZones();
+
+    // 每秒更新一次限制区域
+    const interval = setInterval(updateRestrictedZones, 1000);
+
+    return () => clearInterval(interval);
+  }, []); // 空依赖，只在mount时启动
 
   // 响应式尺寸计算
   useEffect(() => {
@@ -985,6 +1050,7 @@ const MapLayout = () => {
                   onEvaluationStart={index === 0 ? handleEvaluationStart : undefined}
                   onAIEvaluation={handleAIEvaluation} // 所有艺术家都可以生成评论
                   onDebugDataUpdate={index === 0 ? handleDebugDataUpdate : undefined} // 只有第一个艺术家更新调试信息
+                  restrictedZones={restrictedZones} // 传递限制区域
                 />
                 );
               })}
