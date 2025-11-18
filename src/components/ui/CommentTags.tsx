@@ -20,117 +20,139 @@ interface CommentTagsProps {
 
 export default function CommentTags({ tags }: CommentTagsProps) {
   const [visibleTags, setVisibleTags] = useState<CommentTag[]>([]);
+  const [hiddenTags, setHiddenTags] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // 只有当标签数量发生变化时才打印日志
-    if (tags.length !== visibleTags.length) {
-      console.log('CommentTags: Tag count changed from', visibleTags.length, 'to', tags.length);
-      console.log('CommentTags: Received tags:', tags);
+    // 过滤掉临时标签，只显示真正的评论标签
+    const realTags = tags.filter(tag =>
+      !tag.id.startsWith('pending-evaluation-') &&
+      !(tag.content.sight === "Observing..." && tag.content.thought === "Thinking...")
+    );
+
+    if (realTags.length !== visibleTags.length) {
+      console.log('CommentTags: Tag count changed from', visibleTags.length, 'to', realTags.length);
+      console.log('CommentTags: Filtered out temporary tags, showing real tags:', realTags);
     }
-    setVisibleTags(tags);
-  }, [tags]); // 移除visibleTags.length依赖避免循环
+    setVisibleTags(realTags);
+  }, [tags]);
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('zh-CN', { 
-      hour: '2-digit', 
-      minute: '2-digit'
+  // 监控新添加的标签，设置2个标签后消失的逻辑
+  useEffect(() => {
+    visibleTags.forEach(tag => {
+      // 如果是新标签且不在隐藏列表中，设置消失定时器
+      if (!hiddenTags.has(tag.id) && !tag.id.startsWith('pending-evaluation-')) {
+        // 计算标签创建后经过了多长时间
+        const now = Date.now();
+        const tagAge = now - tag.timestamp;
+
+        // 如果标签已经存在超过基础时间，检查是否应该立即隐藏
+        const baseDisplayTime = 8000; // 基础显示时间8秒
+        const additionalTime = 3000; // 每个后续标签增加3秒
+
+        // 查找在这个标签之后创建的标签数量
+        const subsequentTags = visibleTags.filter(t =>
+          t.timestamp > tag.timestamp &&
+          !t.id.startsWith('pending-evaluation-')
+        );
+
+        const totalDisplayTime = baseDisplayTime + (subsequentTags.length * additionalTime);
+
+        if (tagAge >= totalDisplayTime) {
+          // 立即隐藏
+          setHiddenTags(prev => new Set([...prev, tag.id]));
+        } else {
+          // 设置定时器
+          const remainingTime = totalDisplayTime - tagAge;
+          const timer = setTimeout(() => {
+            setHiddenTags(prev => new Set([...prev, tag.id]));
+          }, remainingTime);
+
+          return () => clearTimeout(timer);
+        }
+      }
     });
-  };
-
-  // console.log('CommentTags: Rendering component with', visibleTags.length, 'visible tags');
+  }, [visibleTags, hiddenTags]);
 
   return (
     <div className="absolute inset-0 pointer-events-none z-50">
-      {visibleTags.map((tag) => (
-        <div
-          key={tag.id}
-          className="absolute pointer-events-auto"
-          style={{
-            left: `${tag.position.x}px`,
-            top: `${tag.position.y}px`,
-            transform: 'translate(-50%, -50%)',
-          }}
-        >
-          {/* 标签指示点 - 简洁发光效果 */}
+      {visibleTags.map((tag) => {
+        const isHidden = hiddenTags.has(tag.id);
+
+        return (
           <div
-            className="relative cursor-default group"
+            key={tag.id}
+            className="absolute pointer-events-none"
+            style={{
+              left: `${tag.position.x}px`,
+              top: `${tag.position.y}px`,
+            }}
           >
-            {/* 柔和外层光晕 */}
-            <div
-              className="absolute"
-              style={{
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '30px',
-                height: '30px',
-                background: tag.content.sight === "正在观察中..."
-                  ? 'radial-gradient(circle, rgba(251,146,60,0.6) 0%, rgba(251,146,60,0) 70%)'
-                  : 'radial-gradient(circle, rgba(250,204,21,0.6) 0%, rgba(250,204,21,0) 70%)',
-                filter: 'blur(8px)'
-              }}
-            />
+            {/* 标签指示点 - 简洁发光效果 */}
+            <div className="relative group">
+              {/* 柔和外层光晕 */}
+              <div
+                className="absolute w-8 h-8 rounded-full blur-sm bg-yellow-400 opacity-30"
+                style={{
+                  left: '0',
+                  top: '0',
+                  transform: 'translate(-50%, -50%)'
+                }}
+              />
 
-            {/* 核心亮点 */}
-            <div
-              className="absolute rounded-full"
-              style={{
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '6px',
-                height: '6px',
-                background: tag.content.sight === "正在观察中..."
-                  ? 'rgba(251,146,60,1)'
-                  : 'rgba(250,204,21,1)',
-                boxShadow: tag.content.sight === "正在观察中..."
-                  ? '0 0 12px 3px rgba(251,146,60,0.8)'
-                  : '0 0 12px 3px rgba(250,204,21,0.8)'
-              }}
-            />
-            
-            {/* 案例研究风格弹窗 - 压缩版 */}
-            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-40">
-              <div className="bg-white/40 backdrop-blur-sm border border-gray-300/30 shadow-xl max-w-xs w-64 font-sans text-xs relative">
-                {/* 左侧橙色边框 */}
-                <div className="absolute left-0 top-0 w-0.5 h-full bg-orange-500"></div>
-                
-                {/* 右上角关闭按钮 */}
-                <div className="absolute top-2 right-2 w-4 h-4 flex items-center justify-center cursor-pointer">
-                  <div className="w-3 h-3 rounded-full border border-gray-400/60 flex items-center justify-center text-gray-500 text-xs">
-                    ×
-                  </div>
-                </div>
+              {/* 核心亮点 */}
+              <div
+                className="absolute w-2 h-2 rounded-full bg-yellow-400 shadow-yellow-400/80 shadow-lg"
+                style={{
+                  left: '0',
+                  top: '0',
+                  transform: 'translate(-50%, -50%)'
+                }}
+              />
 
-                {/* 标头区域 */}
-                <div className="pl-4 pr-6 pt-2 pb-1">
-                  <div className="text-gray-600 text-xs">
-                    Artist Observation
-                  </div>
-                </div>
+              {/* 评论文字 - 显示在点的上方 */}
+              <div
+                className={`absolute bg-white/60 px-2 py-1 text-[7px] leading-tight text-gray-800 whitespace-normal pointer-events-auto transition-opacity duration-500 ${
+                  isHidden ? 'opacity-0' : 'opacity-100'
+                }`}
+                style={{
+                  backdropFilter: 'blur(4px)',
+                  minHeight: 'auto',
+                  minWidth: '150px',
+                  maxWidth: '250px',
+                  left: '0',
+                  bottom: '15px',
+                  transform: 'translateX(-50%)'
+                }}
+                onMouseEnter={() => {
+                  // 鼠标悬浮时重新显示
+                  if (isHidden) {
+                    setHiddenTags(prev => {
+                      const newSet = new Set(prev);
+                      newSet.delete(tag.id);
+                      return newSet;
+                    });
+                  }
+                }}
+              >
+                {tag.content.thought}
 
-                {/* 内容区域 - 只显示引号中的话 */}
-                <div className="pl-4 pr-4 py-2 bg-gray-50/40 border-t border-gray-200/30">
-                  <div className="text-gray-800 text-xs leading-tight">
-                    "{tag.content.thought}"
-                  </div>
-                </div>
-
-                {/* 底部信息 */}
-                <div className="pl-4 pr-4 py-1 border-t border-gray-200/30 bg-white/40">
-                  <div className="text-gray-600 text-xs">
-                    {tag.keywords && tag.keywords.length > 0 
-                      ? tag.keywords.slice(0, 3).map(keyword => `[${keyword}]`).join('')
-                      : '[工厂][废弃][冷清]'
-                    }
-                  </div>
-                </div>
+                {/* 从评论框底部向下延伸的连接线 */}
+                <div
+                  className={`absolute w-0.5 h-[15px] bg-white/60 transition-opacity duration-500 ${
+                    isHidden ? 'opacity-0' : 'opacity-100'
+                  }`}
+                  style={{
+                    backdropFilter: 'blur(4px)',
+                    left: '50%',
+                    top: '100%',
+                    transform: 'translateX(-50%)'
+                  }}
+                />
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

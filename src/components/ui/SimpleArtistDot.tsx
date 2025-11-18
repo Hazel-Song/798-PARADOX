@@ -84,9 +84,12 @@ export default function SimpleArtistDot({ character, className = '' }: SimpleArt
         }
 
         ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineWidth = 1.5; // 减少线宽
+        ctx.lineCap = 'butt'; // 使用直角端点，让虚线更规律
+        ctx.lineJoin = 'miter';
+
+        // 设置虚线样式 - 更清晰规律的虚线
+        ctx.setLineDash([4, 2]); // 4像素实线，2像素空白
 
         // 绘制二次贝塞尔曲线
         ctx.beginPath();
@@ -108,8 +111,11 @@ export default function SimpleArtistDot({ character, className = '' }: SimpleArt
         const alpha = Math.max(0.1, 1 - age / 30000);
 
         ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
+        ctx.lineWidth = 1.5; // 减少线宽
+        ctx.lineCap = 'butt'; // 使用直角端点，让虚线更规律
+
+        // 设置虚线样式 - 更清晰规律的虚线
+        ctx.setLineDash([4, 2]); // 4像素实线，2像素空白
 
         ctx.beginPath();
         ctx.moveTo(secondLastPoint.x, secondLastPoint.y);

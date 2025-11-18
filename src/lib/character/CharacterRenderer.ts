@@ -5,8 +5,6 @@ export class CharacterRenderer {
   private ctx: CanvasRenderingContext2D;
   private character: Character | null = null;
   private animationFrame: number | null = null;
-  private trailPoints: { x: number; y: number; alpha: number; timestamp: number }[] = [];
-  private maxTrailLength = 100; // 增加轨迹长度
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -33,44 +31,17 @@ export class CharacterRenderer {
 
   private render = (): void => {
     if (this.character) {
-      this.updateTrail();
       this.drawCharacter();
     }
     this.animationFrame = requestAnimationFrame(this.render);
   };
 
-  private updateTrail(): void {
-    if (!this.character) return;
-
-    const now = Date.now();
-    
-    // 添加当前位置到轨迹
-    this.trailPoints.push({
-      x: this.character.position.x,
-      y: this.character.position.y,
-      alpha: 1.0,
-      timestamp: now
-    });
-
-    // 更新轨迹点的透明度
-    this.trailPoints = this.trailPoints
-      .map(point => ({
-        ...point,
-        alpha: Math.max(0, 1 - (now - point.timestamp) / 15000) // 15秒淡出，更长的轨迹保留时间
-      }))
-      .filter(point => point.alpha > 0)
-      .slice(-this.maxTrailLength);
-  }
-
   private drawCharacter(): void {
     if (!this.character) return;
 
     const { x, y } = this.character.position;
-    
-    this.ctx.save();
 
-    // 绘制轨迹
-    this.drawTrail();
+    this.ctx.save();
 
     // 绘制角色主体
     this.drawCharacterBody(x, y);
@@ -84,42 +55,6 @@ export class CharacterRenderer {
     this.ctx.restore();
   }
 
-  private drawTrail(): void {
-    if (this.trailPoints.length < 2) return;
-
-    this.ctx.save();
-    
-    // 绘制连续的白色路径线
-    for (let i = 1; i < this.trailPoints.length; i++) {
-      const prev = this.trailPoints[i - 1];
-      const curr = this.trailPoints[i];
-      
-      // 使用白色，透明度根据时间衰减
-      const alpha = Math.min(prev.alpha, curr.alpha);
-      this.ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
-      this.ctx.lineWidth = 2;
-      this.ctx.lineCap = 'round';
-      this.ctx.lineJoin = 'round';
-      
-      this.ctx.beginPath();
-      this.ctx.moveTo(prev.x, prev.y);
-      this.ctx.lineTo(curr.x, curr.y);
-      this.ctx.stroke();
-    }
-
-    // 在路径点上绘制小圆点
-    this.trailPoints.forEach((point, index) => {
-      if (index % 3 === 0) { // 每3个点绘制一个圆点
-        this.ctx.fillStyle = `rgba(255, 255, 255, ${point.alpha * 0.6})`;
-        this.ctx.beginPath();
-        this.ctx.arc(point.x, point.y, 1.5, 0, Math.PI * 2);
-        this.ctx.fill();
-      }
-    });
-
-    this.ctx.restore();
-  }
-
   private drawCharacterBody(x: number, y: number): void {
     const time = Date.now() * 0.003;
     
@@ -127,8 +62,8 @@ export class CharacterRenderer {
     this.ctx.save();
     this.ctx.translate(x, y);
     
-    // 外层光晕效果（呼吸动画）
-    const glowSize = 20 + Math.sin(time * 1.5) * 5; // 15-25像素的光晕
+    // 外层光晕效果（固定大小）
+    const glowSize = 20; // 固定光晕大小
     const glowGradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, glowSize);
     glowGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
     glowGradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.4)');
@@ -140,10 +75,9 @@ export class CharacterRenderer {
     this.ctx.arc(0, 0, glowSize, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // 主光点（脉动效果）
-    const pulseScale = 1 + Math.sin(time * 2) * 0.3;
-    const dotSize = 6 * pulseScale;
-    
+    // 主光点（固定大小，移除脉动效果）
+    const dotSize = 6; // 固定大小
+
     // 外环
     this.ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
     this.ctx.lineWidth = 2;

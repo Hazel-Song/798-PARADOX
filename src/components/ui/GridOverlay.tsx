@@ -21,200 +21,153 @@ export default function GridOverlay({
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
 
-  // 获取每个网格单元的区域类型（根据年代不同）
+  // 获取每个网格单元的区域类型 - 统一使用废弃工厂模式
   const getAreaType = (gridX: number, gridY: number) => {
     const gridKey = `${gridX}-${gridY}`;
-    
+
     // 优先检查是否为工作室区域
     if (studioAreas.has(gridKey)) {
-      return { type: 'studio', color: 'rgba(138, 43, 226, 0.4)', textColor: '#8A2BE2', name: '工作室' };
+      return { type: 'studio', color: 'rgba(138, 43, 226, 0.15)', textColor: '#8A2BE2', name: 'Studio' };
     }
-    if (currentPeriod === '1995-2000') {
-      // 1995-2000年代：80%废弃工厂区，20%城区
-      const centerX = 12 / 2;
-      const centerY = 8 / 2;
-      const distanceFromCenter = Math.sqrt((gridX - centerX) ** 2 + (gridY - centerY) ** 2);
-      const maxDistance = Math.sqrt(centerX ** 2 + centerY ** 2);
-      const normalizedDistance = distanceFromCenter / maxDistance;
 
-      if (normalizedDistance > 0.8) {
-        // 外围20%：城区（黑色）
-        return { type: 'urban', color: 'rgba(0, 0, 0, 0.4)', textColor: '#666666', name: '城区' };
-      } else {
-        // 其余80%：废弃工厂
-        return { type: 'industrial', color: 'rgba(105, 105, 105, 0.3)', textColor: '#A9A9A9', name: '废弃工厂' };
-      }
+    // 统一使用废弃工厂网格系统（不再区分时期）
+    const centerX = 12 / 2;
+    const centerY = 8 / 2;
+    const distanceFromCenter = Math.sqrt((gridX - centerX) ** 2 + (gridY - centerY) ** 2);
+    const maxDistance = Math.sqrt(centerX ** 2 + centerY ** 2);
+    const normalizedDistance = distanceFromCenter / maxDistance;
+
+    if (normalizedDistance > 0.8) {
+      // 外围20%：城区（更高透明度）
+      return { type: 'urban', color: 'rgba(0, 0, 0, 0.15)', textColor: '#666666', name: 'Urban' };
     } else {
-      // 其他年代保持原来的分类逻辑
-      const centerX = 12 / 2;
-      const centerY = 8 / 2;
-      const distanceFromCenter = Math.sqrt((gridX - centerX) ** 2 + (gridY - centerY) ** 2);
-      const maxDistance = Math.sqrt(centerX ** 2 + centerY ** 2);
-      const normalizedDistance = distanceFromCenter / maxDistance;
-
-      if (normalizedDistance < 0.3) {
-        return { type: 'gallery', color: 'rgba(255, 215, 0, 0.3)', textColor: '#FFD700', name: '画廊' };
-      } else if (normalizedDistance < 0.5) {
-        return { type: 'studio', color: 'rgba(138, 43, 226, 0.3)', textColor: '#8A2BE2', name: '工作室' };
-      } else if (normalizedDistance < 0.7) {
-        return { type: 'commercial', color: 'rgba(255, 69, 0, 0.3)', textColor: '#FF4500', name: '商业' };
-      } else if (normalizedDistance < 0.85) {
-        return { type: 'residential', color: 'rgba(0, 128, 0, 0.3)', textColor: '#32CD32', name: '住宅' };
-      } else if (normalizedDistance < 0.95) {
-        return { type: 'industrial', color: 'rgba(105, 105, 105, 0.3)', textColor: '#A9A9A9', name: '工业' };
-      } else {
-        return { type: 'public', color: 'rgba(30, 144, 255, 0.3)', textColor: '#1E90FF', name: '公共' };
-      }
+      // 其余80%：废弃工厂（更高透明度）
+      return { type: 'industrial', color: 'rgba(105, 105, 105, 0.1)', textColor: '#A9A9A9', name: 'Abandoned Factory' };
     }
   };
 
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d')!;
-    
-    // 设置画布大小为600x400（固定）
-    canvas.width = 600;
-    canvas.height = 400;
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    
-    ctx.clearRect(0, 0, 600, 400);
-    
-    const cellWidth = 600 / 12; // 50px
-    const cellHeight = 400 / 8;  // 50px
-    
-    // 绘制网格单元格背景色和ASCII纹理
-    for (let y = 0; y < 8; y++) {
-      for (let x = 0; x < 12; x++) {
-        const cellX = x * cellWidth;
-        const cellY = y * cellHeight;
-        const areaInfo = getAreaType(x, y);
-        
-        // 绘制单元格背景色
-        ctx.fillStyle = areaInfo.color;
-        ctx.fillRect(cellX, cellY, cellWidth, cellHeight);
-        
-        if (showLabels) {
-          // 更精致的坐标显示
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-          ctx.font = '8px "SF Mono", "Monaco", "Consolas", monospace';
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'top';
-          ctx.fillText(`${x},${y}`, cellX + 3, cellY + 3);
-          
-          // 更精致的区域类型显示
-          ctx.fillStyle = areaInfo.textColor;
-          ctx.font = '10px "SF Pro Display", "Helvetica Neue", sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(
-            areaInfo.name, 
-            cellX + cellWidth / 2, 
-            cellY + cellHeight / 2 + 6
-          );
+    // 添加一个小的延迟确保DOM完全渲染
+    const renderGrid = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext('2d')!;
+
+      // 获取实际的canvas父容器尺寸
+      const rect = canvas.getBoundingClientRect();
+      const devicePixelRatio = window.devicePixelRatio || 1;
+
+      // 设置画布大小为容器的实际尺寸
+      const actualWidth = rect.width;
+      const actualHeight = rect.height;
+
+      // 确保canvas有实际尺寸
+      if (actualWidth === 0 || actualHeight === 0) {
+        console.log('GridOverlay: Canvas has zero dimensions, skipping render');
+        return;
+      }
+
+      canvas.width = actualWidth * devicePixelRatio;
+      canvas.height = actualHeight * devicePixelRatio;
+      canvas.style.width = `${actualWidth}px`;
+      canvas.style.height = `${actualHeight}px`;
+
+      // 缩放画布以适应高DPI显示
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+
+      ctx.clearRect(0, 0, actualWidth, actualHeight);
+
+      const cellWidth = actualWidth / 12;
+      const cellHeight = actualHeight / 8;
+
+      console.log('GridOverlay: Rendering grid with dimensions:', actualWidth, 'x', actualHeight, 'cell:', cellWidth, 'x', cellHeight);
+
+      // 绘制网格单元格背景色
+      for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 12; x++) {
+          const cellX = x * cellWidth;
+          const cellY = y * cellHeight;
+          const areaInfo = getAreaType(x, y);
+
+          // 绘制单元格背景色（更透明）
+          ctx.fillStyle = areaInfo.color;
+          ctx.fillRect(cellX, cellY, cellWidth, cellHeight);
+
+          if (showLabels) {
+            // 坐标显示 - 居中在上方
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.font = `${Math.max(6, cellWidth * 0.08)}px "SF Mono", "Monaco", "Consolas", monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`${x},${y}`, cellX + cellWidth / 2, cellY + 3);
+
+            // 区域类型显示 - 换行处理和更小字体
+            ctx.fillStyle = areaInfo.textColor;
+            const fontSize = Math.max(6, cellWidth * 0.06);
+            ctx.font = `${fontSize}px "SF Mono", "Monaco", "Consolas", monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // 换行处理长文本
+            const words = areaInfo.name.split(' ');
+            if (words.length > 1 && areaInfo.name === 'Abandoned Factory') {
+              // 处理 "Abandoned Factory" 换行
+              ctx.fillText('Abandoned', cellX + cellWidth / 2, cellY + cellHeight / 2 - 3);
+              ctx.fillText('Factory', cellX + cellWidth / 2, cellY + cellHeight / 2 + fontSize + 1);
+            } else {
+              // 单行文本
+              ctx.fillText(areaInfo.name, cellX + cellWidth / 2, cellY + cellHeight / 2 + 8);
+            }
+          }
         }
       }
-    }
-    
-    // 绘制网格线 - 更细更优雅
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.lineWidth = 0.5;
-    
-    // 绘制垂直线
-    for (let x = 0; x <= 12; x++) {
-      ctx.beginPath();
-      ctx.moveTo(x * cellWidth, 0);
-      ctx.lineTo(x * cellWidth, 400);
-      ctx.stroke();
-    }
-    
-    // 绘制水平线
-    for (let y = 0; y <= 8; y++) {
-      ctx.beginPath();
-      ctx.moveTo(0, y * cellHeight);
-      ctx.lineTo(600, y * cellHeight);
-      ctx.stroke();
-    }
 
-    // 绘制图例
-    if (showLabels) {
-      drawLegend(ctx);
-    }
-    
-  }, [showLabels, currentPeriod, studioAreas]);
-
-  const drawLegend = (ctx: CanvasRenderingContext2D) => {
-    let legend;
-    
-    if (currentPeriod === '1995-2000') {
-      legend = [
-        { type: 'industrial', color: 'rgba(105, 105, 105, 0.8)', textColor: '#A9A9A9', name: '废弃工厂' },
-        { type: 'urban', color: 'rgba(0, 0, 0, 0.8)', textColor: '#666666', name: '城区' }
-      ];
-      
-      // 如果有工作室区域，添加到图例中
-      if (studioAreas.size > 0) {
-        legend.unshift({ type: 'studio', color: 'rgba(138, 43, 226, 0.8)', textColor: '#8A2BE2', name: '工作室' });
-      }
-    } else {
-      legend = [
-        { type: 'gallery', color: 'rgba(255, 215, 0, 0.8)', textColor: '#FFD700', name: '画廊区域' },
-        { type: 'studio', color: 'rgba(138, 43, 226, 0.8)', textColor: '#8A2BE2', name: '工作室区域' },
-        { type: 'commercial', color: 'rgba(255, 69, 0, 0.8)', textColor: '#FF4500', name: '商业区域' },
-        { type: 'residential', color: 'rgba(0, 128, 0, 0.8)', textColor: '#32CD32', name: '住宅区域' },
-        { type: 'industrial', color: 'rgba(105, 105, 105, 0.8)', textColor: '#A9A9A9', name: '工业区域' },
-        { type: 'public', color: 'rgba(30, 144, 255, 0.8)', textColor: '#1E90FF', name: '公共区域' }
-      ];
-    }
-
-    const legendX = 10;
-    const legendY = 280;
-    const legendWidth = 110;
-    const legendHeight = 20 + legend.length * 12 + 8; // 更紧凑的高度
-
-    // 绘制图例背景 - 更现代的样式
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-    ctx.fillRect(legendX, legendY, legendWidth, legendHeight);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    ctx.lineWidth = 0.5;
-    ctx.strokeRect(legendX, legendY, legendWidth, legendHeight);
-
-    // 绘制图例标题
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.font = '10px "SF Pro Display", "Helvetica Neue", sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText('区域类型', legendX + 8, legendY + 8);
-
-    // 绘制图例项目
-    legend.forEach((item, index) => {
-      const itemY = legendY + 20 + index * 12;
-      
-      // 绘制颜色方块 - 更小更精致
-      ctx.fillStyle = item.color;
-      ctx.fillRect(legendX + 8, itemY + 1, 8, 8);
+      // 绘制交点处的白色十字线
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.lineWidth = 0.5;
-      ctx.strokeRect(legendX + 8, itemY + 1, 8, 8);
-      
-      // 绘制文字
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-      ctx.font = '9px "SF Pro Display", "Helvetica Neue", sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText(item.name, legendX + 20, itemY + 2);
-    });
-  };
+      ctx.lineWidth = 1;
+
+      // 在每个网格交点处绘制十字
+      for (let y = 0; y <= 8; y++) {
+        for (let x = 0; x <= 12; x++) {
+          const pointX = x * cellWidth;
+          const pointY = y * cellHeight;
+
+          // 十字的长度
+          const crossSize = Math.min(cellWidth, cellHeight) * 0.1;
+
+          // 绘制水平线
+          ctx.beginPath();
+          ctx.moveTo(pointX - crossSize, pointY);
+          ctx.lineTo(pointX + crossSize, pointY);
+          ctx.stroke();
+
+          // 绘制垂直线
+          ctx.beginPath();
+          ctx.moveTo(pointX, pointY - crossSize);
+          ctx.lineTo(pointX, pointY + crossSize);
+          ctx.stroke();
+        }
+      }
+
+      // 图例已移除 - 不再显示
+    };
+
+    // 使用setTimeout确保DOM渲染完成
+    const timeoutId = setTimeout(renderGrid, 10);
+
+    return () => clearTimeout(timeoutId);
+  }, [showLabels, currentPeriod, studioAreas]);
 
   return (
     <div className={`absolute inset-0 ${className}`} style={{ zIndex: 8 }}>
       <canvas
         ref={canvasRef}
         className="absolute inset-0 pointer-events-none"
-        style={{ 
-          width: '100%', 
+        style={{
+          width: '100%',
           height: '100%'
         }}
       />

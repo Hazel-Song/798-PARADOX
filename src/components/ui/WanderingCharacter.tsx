@@ -9,6 +9,7 @@ import { Character, ArtistPersonality } from '@/types/character';
 interface WanderingCharacterProps {
   gridSystem: GridSystem;
   className?: string;
+  artistId?: string; // 新增：艺术家ID，用于区分不同艺术家
   onCharacterUpdate?: (character: Character) => void;
   onEvaluation?: (keywords: string[], evaluation: string) => void;
   onEvaluationStart?: (keywords: string[]) => void;
@@ -31,6 +32,7 @@ export interface WanderingCharacterRef {
   setSpeed: (speed: number) => void;
   isPaused: () => boolean;
   getCurrentPosition: () => { x: number; y: number };
+  updateCanvasDimensions: (width: number, height: number) => void; // 新增：更新canvas尺寸
 }
 
 const defaultArtistPersonality: ArtistPersonality = {
@@ -45,9 +47,10 @@ const defaultArtistPersonality: ArtistPersonality = {
   }
 };
 
-const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterProps>(({ 
-  gridSystem, 
+const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterProps>(({
+  gridSystem,
   className = '',
+  artistId = 'artist-default', // 默认艺术家ID
   onCharacterUpdate,
   onEvaluation,
   onEvaluationStart,
@@ -75,13 +78,14 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
     }
 
     // 初始化轨迹系统
-    console.log('WanderingCharacter: Creating TrajectorySystem...');
-    trajectorySystemRef.current = new TrajectorySystem(gridSystem, defaultArtistPersonality);
+    console.log('WanderingCharacter: Creating TrajectorySystem with artistId:', artistId);
+    trajectorySystemRef.current = new TrajectorySystem(gridSystem, defaultArtistPersonality, artistId);
     console.log('WanderingCharacter: TrajectorySystem created successfully');
-    
-    // 设置画布尺寸为Demo Test区域的固定尺寸 (与MapGridCanvas保持一致)
-    trajectorySystemRef.current.setCanvasDimensions(600, 400);
-    console.log('WanderingCharacter: Canvas dimensions set to 600x400');
+
+    // 使用GridSystem的实际canvas尺寸
+    const canvasDimensions = gridSystem.getCanvasDimensions();
+    trajectorySystemRef.current.setCanvasDimensions(canvasDimensions.width, canvasDimensions.height);
+    console.log('WanderingCharacter: Canvas dimensions set to', canvasDimensions.width + 'x' + canvasDimensions.height);
     
     // 配置AI服务
     if (apiKey || baseUrl) {
@@ -106,15 +110,15 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
       }
     });
     
-    // 初始化渲染器
-    rendererRef.current = new CharacterRenderer(canvasRef.current);
+    // 初始化渲染器 - 暂时禁用，使用SimpleArtistDot代替
+    // rendererRef.current = new CharacterRenderer(canvasRef.current);
     
     // 设置初始角色
     console.log('WanderingCharacter: Getting initial character...');
     const initialCharacter = trajectorySystemRef.current.getCharacter();
     console.log('WanderingCharacter: Initial character:', initialCharacter);
     setCharacter(initialCharacter);
-    rendererRef.current.setCharacter(initialCharacter);
+    // rendererRef.current.setCharacter(initialCharacter); // 禁用CharacterRenderer
 
     // 开始游走
     console.log('WanderingCharacter: Starting wandering...');
@@ -128,9 +132,10 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
         const updatedCharacter = trajectorySystemRef.current.getCharacter();
         setCharacter(updatedCharacter);
         
-        if (rendererRef.current) {
-          rendererRef.current.setCharacter(updatedCharacter);
-        }
+        // 禁用CharacterRenderer更新，使用SimpleArtistDot代替
+        // if (rendererRef.current) {
+        //   rendererRef.current.setCharacter(updatedCharacter);
+        // }
         
         if (onCharacterUpdate) {
           onCharacterUpdate(updatedCharacter);
@@ -160,15 +165,15 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
             onEvaluation(currentKeywords, updatedCharacter.lastEvaluation.evaluation);
           }
           
-          // 显示评价气泡
-          if (rendererRef.current && 
-              updatedCharacter.lastEvaluation.evaluation !== '等待AI评价...' && 
-              updatedCharacter.lastEvaluation.evaluation !== 'AI正在分析中...') {
-            rendererRef.current.drawEvaluationBubble(
-              updatedCharacter.lastEvaluation.evaluation.substring(0, 100) + '...',
-              4000
-            );
-          }
+          // 显示评价气泡 - 禁用，使用CommentTags代替
+          // if (rendererRef.current &&
+          //     updatedCharacter.lastEvaluation.evaluation !== '等待AI评价...' &&
+          //     updatedCharacter.lastEvaluation.evaluation !== 'AI正在分析中...') {
+          //   rendererRef.current.drawEvaluationBubble(
+          //     updatedCharacter.lastEvaluation.evaluation.substring(0, 100) + '...',
+          //     4000
+          //   );
+          // }
         }
       } else {
         console.warn('WanderingCharacter: trajectorySystemRef.current is null in updateInterval');
@@ -177,13 +182,15 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
 
     // 处理窗口大小变化
     const handleResize = () => {
-      if (rendererRef.current) {
-        rendererRef.current.resize();
-      }
-      
-      // 更新轨迹系统的画布尺寸 (保持固定600x400)
-      if (trajectorySystemRef.current) {
-        trajectorySystemRef.current.setCanvasDimensions(600, 400);
+      // 禁用CharacterRenderer的resize调用
+      // if (rendererRef.current) {
+      //   rendererRef.current.resize();
+      // }
+
+      // 更新轨迹系统的画布尺寸 - 使用动态尺寸
+      if (trajectorySystemRef.current && gridSystem) {
+        const canvasDimensions = gridSystem.getCanvasDimensions();
+        trajectorySystemRef.current.setCanvasDimensions(canvasDimensions.width, canvasDimensions.height);
       }
     };
 
@@ -192,14 +199,15 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
     return () => {
       clearInterval(updateInterval);
       window.removeEventListener('resize', handleResize);
-      
+
       if (trajectorySystemRef.current) {
         trajectorySystemRef.current.stopWandering();
       }
-      
-      if (rendererRef.current) {
-        rendererRef.current.stopRendering();
-      }
+
+      // 禁用CharacterRenderer的停止渲染调用
+      // if (rendererRef.current) {
+      //   rendererRef.current.stopRendering();
+      // }
     };
   }, [gridSystem]);
 
@@ -230,6 +238,12 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
     },
     getCurrentPosition: () => {
       return trajectorySystemRef.current ? trajectorySystemRef.current.getCurrentPosition() : { x: 0, y: 0 };
+    },
+    updateCanvasDimensions: (width: number, height: number) => {
+      if (trajectorySystemRef.current) {
+        console.log('🔄 WanderingCharacter: Updating canvas dimensions via ref:', { width, height });
+        trajectorySystemRef.current.setCanvasDimensions(width, height);
+      }
     }
   }));
 

@@ -4,16 +4,30 @@ export class GridSystem {
   private grid: MapGrid;
   private keywordDatabase: Map<string, KeywordData>;
   private tagCounts: Map<string, number> = new Map(); // 跟踪每个网格的标签数量
+  private canvasWidth: number; // 存储实际canvas宽度
+  private canvasHeight: number; // 存储实际canvas高度
 
-  constructor(width: number, height: number, cellSize: number = 50) {
-    this.grid = this.initializeGrid(width, height, cellSize);
+  constructor(width: number, height: number, cellSize: number = 50, forceGridWidth?: number, forceGridHeight?: number) {
+    this.canvasWidth = width;
+    this.canvasHeight = height;
+    this.grid = this.initializeGrid(width, height, cellSize, forceGridWidth, forceGridHeight);
     this.keywordDatabase = new Map();
     this.populateWithInitialKeywords();
   }
 
-  private initializeGrid(width: number, height: number, cellSize: number): MapGrid {
-    const gridWidth = Math.floor(width / cellSize);
-    const gridHeight = Math.floor(height / cellSize);
+  private initializeGrid(width: number, height: number, cellSize: number, forceGridWidth?: number, forceGridHeight?: number): MapGrid {
+    // 使用强制网格尺寸，如果提供的话
+    const gridWidth = forceGridWidth || Math.floor(width / cellSize);
+    const gridHeight = forceGridHeight || Math.floor(height / cellSize);
+
+    console.log('GridSystem: Initializing grid with dimensions:', {
+      gridWidth,
+      gridHeight,
+      canvasWidth: width,
+      canvasHeight: height,
+      cellSize,
+      forced: !!forceGridWidth
+    });
     
     const cells: GridCell[][] = [];
     
@@ -87,22 +101,25 @@ export class GridSystem {
 
   private populateWithInitialKeywords(): void {
     const keywordsByCategory = {
-      // 1995-2000年代关键词（只保留这三类）
+      // 1995-2002年代关键词 - 突出废弃工厂主题
       urban: [
-        '红砖楼', '筒子楼', '简陋平房', '城乡结合部', '灰色水泥墙', 
-        '胡同与工厂混杂', '工厂宿舍区', '煤炉', '蜡纸窗', '工友聚集', 
-        '大院闲聊', '墙报', '涂鸦'
+        '简陋工人宿舍', '破败红砖楼', '筒子楼', '城乡结合部', '斑驳水泥墙',
+        '空置厂房区域', '荒芜厂区道路', '废弃的门房', '生锈铁门', '破旧自行车棚',
+        '野草丛生', '残缺的标语牌', '褪色的工厂编号'
       ],
       industrial: [
-        '红砖厂房', '苏式厂房结构', '大跨度拱形屋顶', '钢架梁与裸露管道', 
-        '巨大天窗', '采光顶', '高耸烟囱', '空旷回声空间', '毛式红色标语牌', 
-        '流水线遗迹', '旧机器与静止的时间', '旧铁柜', '档案柜', '尘土', '金属味空气'
+        '废弃红砖厂房', '空置苏式厂房', '锈蚀钢架结构', '破损天窗玻璃',
+        '倒塌的烟囱', '停转的机器', '废弃流水线', '积尘的工作台',
+        '生锈的铁制品', '残破标语横幅', '停产的车间', '空置的锅炉房',
+        '遗弃的机器设备', '腐朽的木制货架', '破碎的水泥地面', '漏雨的屋顶',
+        '鸽子栖息的横梁', '蛛网密布的角落', '金属锈蚀的气味', '回声空旷的厂房'
       ],
       studio: [
-        '工厂改造工作室', '工业风混合艺术痕迹', '简易雕塑架', '焊接铁架', 
-        '简易隔断', '木板分区', '大窗户采光', '高天花板', '简陋电线与临时照明', 
-        '独立艺术家聚集', '自发性的艺术社区', '海归艺术家的实验场', 
-        '大院式共享氛围', '集体讨论与即兴展览', '工作生活一体', '简单床铺与炉具'
+        '艺术家初入废厂', '简陋改造空间', '临时搭建的工作室', '废料改造的桌椅',
+        '自制的画架', '利用天窗采光', '煤炉取暖', '简易拉电',
+        '与老厂房共存', '探索空间可能', '实验性艺术创作', '地下艺术聚会',
+        '自发的展示空间', '艺术家互助网络', '理想主义的尝试', '边缘化的创作环境',
+        '拒绝主流的态度', '寻找纯粹表达', '工业废墟美学', '原始创作冲动'
       ]
     };
 
@@ -149,22 +166,72 @@ export class GridSystem {
 
   // 将屏幕坐标转换为网格坐标
   public screenToGrid(screenX: number, screenY: number): Position {
-    const gridX = Math.floor(screenX / this.grid.cellSize);
-    const gridY = Math.floor(screenY / this.grid.cellSize);
-    
+    // 使用实际的canvas尺寸和网格尺寸来计算单元格大小
+    const actualCellWidth = this.canvasWidth / this.grid.width;
+    const actualCellHeight = this.canvasHeight / this.grid.height;
+
+    const gridX = Math.floor(screenX / actualCellWidth);
+    const gridY = Math.floor(screenY / actualCellHeight);
+
+    // 限制边界，确保在有效网格范围内
+    const clampedGridX = Math.max(0, Math.min(gridX, this.grid.width - 1));
+    const clampedGridY = Math.max(0, Math.min(gridY, this.grid.height - 1));
+
+    // 只有当有明显错误时才打印日志
+    if (gridX !== clampedGridX || gridY !== clampedGridY || screenX < 0 || screenY < 0 ||
+        screenX > this.canvasWidth || screenY > this.canvasHeight) {
+      console.warn('⚠️ screenToGrid boundary clamping:', {
+        input: { screenX, screenY },
+        canvasDims: { width: this.canvasWidth, height: this.canvasHeight },
+        gridDims: { width: this.grid.width, height: this.grid.height },
+        cellSize: { width: actualCellWidth, height: actualCellHeight },
+        calculated: { gridX, gridY },
+        clamped: { gridX: clampedGridX, gridY: clampedGridY },
+        outOfBounds: {
+          x: screenX < 0 || screenX > this.canvasWidth,
+          y: screenY < 0 || screenY > this.canvasHeight
+        }
+      });
+    }
+
     return {
       x: screenX,
       y: screenY,
-      gridX: Math.max(0, Math.min(gridX, this.grid.width - 1)),
-      gridY: Math.max(0, Math.min(gridY, this.grid.height - 1))
+      gridX: clampedGridX,
+      gridY: clampedGridY
     };
+  }
+
+  // 将网格坐标转换为屏幕坐标
+  public gridToScreen(gridX: number, gridY: number): { x: number; y: number } {
+    // 使用实际的canvas尺寸和网格尺寸来计算单元格大小
+    const actualCellWidth = this.canvasWidth / this.grid.width;
+    const actualCellHeight = this.canvasHeight / this.grid.height;
+
+    // 网格坐标转为屏幕坐标（注意：gridX, gridY可以是小数，支持网格中心点计算）
+    const screenX = gridX * actualCellWidth;
+    const screenY = gridY * actualCellHeight;
+
+    console.log('🔄 gridToScreen conversion:', {
+      input: { gridX, gridY },
+      canvasDims: { width: this.canvasWidth, height: this.canvasHeight },
+      gridDims: { width: this.grid.width, height: this.grid.height },
+      cellSize: { width: actualCellWidth, height: actualCellHeight },
+      output: { screenX, screenY }
+    });
+
+    return { x: screenX, y: screenY };
   }
 
   // 获取网格单元格的中心点坐标
   public getCellCenter(gridX: number, gridY: number): { x: number, y: number } {
+    // 使用实际的canvas尺寸和网格尺寸来计算单元格大小
+    const actualCellWidth = this.canvasWidth / this.grid.width;
+    const actualCellHeight = this.canvasHeight / this.grid.height;
+
     return {
-      x: (gridX + 0.5) * this.grid.cellSize,
-      y: (gridY + 0.5) * this.grid.cellSize
+      x: (gridX + 0.5) * actualCellWidth,
+      y: (gridY + 0.5) * actualCellHeight
     };
   }
 
@@ -221,6 +288,21 @@ export class GridSystem {
       cellSize: this.grid.cellSize,
       totalCells: this.grid.totalCells
     };
+  }
+
+  // 获取实际canvas尺寸
+  public getCanvasDimensions(): { width: number, height: number } {
+    return {
+      width: this.canvasWidth,
+      height: this.canvasHeight
+    };
+  }
+
+  // 更新canvas尺寸（用于响应式调整）
+  public updateCanvasDimensions(width: number, height: number): void {
+    this.canvasWidth = width;
+    this.canvasHeight = height;
+    console.log('GridSystem: Canvas dimensions updated to', { width, height });
   }
 
   // 获取所有网格数据（用于渲染）

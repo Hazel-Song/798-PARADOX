@@ -8,10 +8,10 @@ export class TrajectorySystem {
   private character: Character;
   private animationFrame: number | null = null;
   private lastUpdateTime: number = 0;
-  private evaluationInterval: number = 20000; // 20秒评价一次
+  private evaluationInterval: number = 5000; // 5秒评价一次
   private nextEvaluationTime: number = 0;
   private aiService: AIEvaluationService;
-  private onEvaluationCallback?: (evaluation: { artistic: string; cultural: string; critique: string; confidence: number }) => void;
+  private onEvaluationCallback?: (evaluation: { sight: string; thought: string; confidence: number }) => void;
   private onEvaluationStartCallback?: (keywords: string[]) => void;
   private canvasWidth: number = 600;
   private canvasHeight: number = 400;
@@ -19,36 +19,108 @@ export class TrajectorySystem {
   private isPaused: boolean = false;
   private lastKeywords: string[] = [];
 
-  constructor(gridSystem: GridSystem, artistPersonality: ArtistPersonality) {
+  constructor(gridSystem: GridSystem, artistPersonality: ArtistPersonality, artistId?: string) {
     this.gridSystem = gridSystem;
-    this.character = this.createCharacter(artistPersonality);
+
+    // 立即同步canvas尺寸
+    const canvasDimensions = gridSystem.getCanvasDimensions();
+    this.canvasWidth = canvasDimensions.width;
+    this.canvasHeight = canvasDimensions.height;
+
+    // 获取GridSystem的详细信息进行对比
+    const gridInfo = gridSystem.getGridInfo();
+
+    console.log('🔧 TrajectorySystem Constructor Debug:', {
+      canvasDimensions,
+      gridInfo,
+      expectedCanvasFromGrid: {
+        width: gridInfo.width * gridInfo.cellSize,
+        height: gridInfo.height * gridInfo.cellSize
+      },
+      'gridInfo.width * cellSize': gridInfo.width * gridInfo.cellSize,
+      'gridInfo.height * cellSize': gridInfo.height * gridInfo.cellSize,
+      'actual canvas': { width: this.canvasWidth, height: this.canvasHeight }
+    });
+
+    this.character = this.createCharacter(artistPersonality, artistId);
     this.aiService = new AIEvaluationService();
     this.generateInitialTrajectory();
   }
 
-  private createCharacter(personality: ArtistPersonality): Character {
+  private createCharacter(personality: ArtistPersonality, artistId?: string): Character {
     const gridInfo = this.gridSystem.getGridInfo();
 
-    // 随机定位在较大区域（5%边距）
-    const marginPercent = 0.05; // 减少到5%边距，扩大初始范围
-    const availableWidth = this.canvasWidth * (1 - 2 * marginPercent);
-    const availableHeight = this.canvasHeight * (1 - 2 * marginPercent);
+    // 为不同艺术家创建不同的初始位置，基于艺术家ID
+    const seed = artistId ? this.hashString(artistId) : 0;
+    const random1 = (Math.sin(seed) + 1) / 2;
+    const random2 = (Math.cos(seed) + 1) / 2;
 
-    const startCanvasX = this.canvasWidth * marginPercent + Math.random() * availableWidth;
-    const startCanvasY = this.canvasHeight * marginPercent + Math.random() * availableHeight;
+    // 在网格系统的有效范围内定位，避免重叠
+    const randomGridX = Math.floor(random1 * gridInfo.width);
+    const randomGridY = Math.floor(random2 * gridInfo.height);
 
-    // 计算对应的网格位置
-    const cellWidth = this.canvasWidth / gridInfo.width;
-    const cellHeight = this.canvasHeight / gridInfo.height;
-    const startX = Math.max(0, Math.min(Math.floor(startCanvasX / cellWidth), gridInfo.width - 1));
-    const startY = Math.max(0, Math.min(Math.floor(startCanvasY / cellHeight), gridInfo.height - 1));
+    // 🔧 使用GridSystem的统一边界计算 - 与移动逻辑完全一致
+    const canvasDims = this.gridSystem.getCanvasDimensions();
+
+    // 计算画布坐标 - 在网格单元中心位置
+    const actualCellWidth = canvasDims.width / gridInfo.width;
+    const actualCellHeight = canvasDims.height / gridInfo.height;
+    const startCanvasX = (randomGridX + 0.5) * actualCellWidth;
+    const startCanvasY = (randomGridY + 0.5) * actualCellHeight;
+
+    // 关键问题：使用GridSystem的转换方法进行对比
+    const gridSystemConversion = this.gridSystem.gridToScreen(randomGridX + 0.5, randomGridY + 0.5);
+
+    console.log('🎯 Character Creation Coordinate Debug:', {
+      artistId,
+      gridInfo,
+      canvasDims,
+      randomGrid: { x: randomGridX, y: randomGridY },
+      cellSize: { width: actualCellWidth, height: actualCellHeight },
+      'Method1_TrajectorySystem': { x: startCanvasX, y: startCanvasY },
+      'Method2_GridSystem': gridSystemConversion,
+      'Coordinate_Difference': {
+        x: Math.abs(startCanvasX - gridSystemConversion.x),
+        y: Math.abs(startCanvasY - gridSystemConversion.y)
+      }
+    });
+
+    // 🚨 使用与移动逻辑完全相同的边界检查
+    const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3;
+    const minValidX = margin;
+    const minValidY = margin;
+    const maxValidX = canvasDims.width - margin;
+    const maxValidY = canvasDims.height - margin; // 关键：使用GridSystem的canvas高度
+
+    const clampedX = Math.max(minValidX, Math.min(maxValidX, startCanvasX));
+    const clampedY = Math.max(minValidY, Math.min(maxValidY, startCanvasY));
+
+    // 特别检查初始位置是否会违反下边界
+    if (startCanvasY >= maxValidY) {
+      console.error('🚨 CHARACTER CREATION: Lower boundary violation prevented!', {
+        randomGridY,
+        startCanvasY,
+        clampedY,
+        maxValidY,
+        canvasHeight: canvasDims.height
+      });
+    }
+
+    console.log('Character creation final position:', {
+      gridInfo,
+      cellSize: { width: actualCellWidth, height: actualCellHeight },
+      canvas: { width: canvasDims.width, height: canvasDims.height },
+      calculated: { x: startCanvasX, y: startCanvasY },
+      clamped: { x: clampedX, y: clampedY },
+      boundaries: { minX: minValidX, maxX: maxValidX, minY: minValidY, maxY: maxValidY }
+    });
 
     return {
-      id: 'wandering-artist',
+      id: artistId || 'wandering-artist',
       name: personality.name,
-      position: { x: startCanvasX, y: startCanvasY },
-      targetPosition: { x: startCanvasX, y: startCanvasY },
-      gridPosition: { gridX: startX, gridY: startY },
+      position: { x: clampedX, y: clampedY },
+      targetPosition: { x: clampedX, y: clampedY },
+      gridPosition: { gridX: randomGridX, gridY: randomGridY },
       speed: 40, // 基础速度为40像素每秒
       isMoving: false,
       personality,
@@ -59,7 +131,7 @@ export class TrajectorySystem {
 
   private generateInitialTrajectory(): void {
     const trajectory: TrajectoryPoint[] = [];
-    
+
     // 起始点
     trajectory.push({
       x: this.character.position.x,
@@ -70,41 +142,61 @@ export class TrajectorySystem {
       waitTime: 3000
     });
 
-    // 生成20个轨迹点，严格限制在边界内
+    // 生成20个轨迹点，使用GridSystem统一的边界计算
     let currentCanvasX = this.character.position.x;
     let currentCanvasY = this.character.position.y;
 
     for (let i = 0; i < 20; i++) {
-      // 严格的边界控制 - 确保不超出边界
-      const margin = 10; // 10px边距
-      const nextCanvasX = margin + Math.random() * (this.canvasWidth - 2 * margin);
-      const nextCanvasY = margin + Math.random() * (this.canvasHeight - 2 * margin);
-      
-      // 转换到网格坐标 - 使用实际画布尺寸计算
+      // 🔧 使用GridSystem的统一边界计算
       const gridInfo = this.gridSystem.getGridInfo();
-      const cellWidth = this.canvasWidth / gridInfo.width;
-      const cellHeight = this.canvasHeight / gridInfo.height;
-      const gridPos = {
-        x: nextCanvasX,
-        y: nextCanvasY,
-        gridX: Math.max(0, Math.min(Math.floor(nextCanvasX / cellWidth), gridInfo.width - 1)),
-        gridY: Math.max(0, Math.min(Math.floor(nextCanvasY / cellHeight), gridInfo.height - 1))
-      };
-      
+      const canvasDims = this.gridSystem.getCanvasDimensions();
+
+      // 确保在网格范围内：0到gridInfo.width-1, 0到gridInfo.height-1
+      const randomGridX = Math.floor(Math.random() * gridInfo.width);
+      const randomGridY = Math.floor(Math.random() * gridInfo.height);
+
+      // 转换到画布坐标 - 在网格单元中心位置
+      const actualCellWidth = canvasDims.width / gridInfo.width;
+      const actualCellHeight = canvasDims.height / gridInfo.height;
+
+      const nextCanvasX = (randomGridX + 0.5) * actualCellWidth;
+      const nextCanvasY = (randomGridY + 0.5) * actualCellHeight;
+
+      // 🚨 使用与移动逻辑完全相同的边界检查
+      const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3;
+      const minValidX = margin;
+      const minValidY = margin;
+      const maxValidX = canvasDims.width - margin;
+      const maxValidY = canvasDims.height - margin; // 关键：使用GridSystem的canvas高度
+
+      const clampedX = Math.max(minValidX, Math.min(maxValidX, nextCanvasX));
+      const clampedY = Math.max(minValidY, Math.min(maxValidY, nextCanvasY));
+
+      // 验证生成的轨迹点不会超出边界
+      if (clampedY >= maxValidY) {
+        console.error('🚨 TRAJECTORY GENERATION: Lower boundary violation prevented!', {
+          randomGridY,
+          nextCanvasY,
+          clampedY,
+          maxValidY,
+          canvasHeight: canvasDims.height
+        });
+      }
+
       const action = Math.random() < 0.3 ? 'evaluate' : 'observe'; // 30%概率评价
       const waitTime = action === 'evaluate' ? 4000 : 2000; // 更长的等待时间
 
       trajectory.push({
-        x: nextCanvasX,
-        y: nextCanvasY,
-        gridX: gridPos.gridX,
-        gridY: gridPos.gridY,
+        x: clampedX,
+        y: clampedY,
+        gridX: randomGridX,
+        gridY: randomGridY,
         action,
         waitTime
       });
 
-      currentCanvasX = nextCanvasX;
-      currentCanvasY = nextCanvasY;
+      currentCanvasX = clampedX;
+      currentCanvasY = clampedY;
     }
 
     this.character.trajectory = this.addCurvedTransitions(trajectory);
@@ -173,14 +265,25 @@ export class TrajectorySystem {
                       3 * mt * t * t * cp2Y +
                       t * t * t * next.y;
 
-        // 确保点在边界内
-        const clampedX = Math.max(10, Math.min(this.canvasWidth - 10, curveX));
-        const clampedY = Math.max(10, Math.min(this.canvasHeight - 10, curveY));
-
-        // 计算网格坐标
+        // 🔧 使用GridSystem的统一边界计算 - 与移动逻辑完全一致
         const gridInfo = this.gridSystem.getGridInfo();
-        const cellWidth = this.canvasWidth / gridInfo.width;
-        const cellHeight = this.canvasHeight / gridInfo.height;
+        const canvasDims = this.gridSystem.getCanvasDimensions();
+        const actualCellWidth = canvasDims.width / gridInfo.width;
+        const actualCellHeight = canvasDims.height / gridInfo.height;
+
+        // 🚨 使用与移动逻辑完全相同的严格边界控制
+        const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3;
+        const minValidX = margin;
+        const minValidY = margin;
+        const maxValidX = canvasDims.width - margin;
+        const maxValidY = canvasDims.height - margin; // 关键：使用GridSystem的canvas高度
+
+        const clampedX = Math.max(minValidX, Math.min(maxValidX, curveX));
+        const clampedY = Math.max(minValidY, Math.min(maxValidY, curveY));
+
+        // 计算网格坐标，确保在有效范围内
+        const gridX = Math.max(0, Math.min(Math.floor(clampedX / actualCellWidth), gridInfo.width - 1));
+        const gridY = Math.max(0, Math.min(Math.floor(clampedY / actualCellHeight), gridInfo.height - 1));
 
         // 计算这个点的速度 - 优雅的速度变化
         let speed = 40; // 基础速度
@@ -201,8 +304,8 @@ export class TrajectorySystem {
         smoothedTrajectory.push({
           x: clampedX,
           y: clampedY,
-          gridX: Math.max(0, Math.min(Math.floor(clampedX / cellWidth), gridInfo.width - 1)),
-          gridY: Math.max(0, Math.min(Math.floor(clampedY / cellHeight), gridInfo.height - 1)),
+          gridX: gridX,
+          gridY: gridY,
           action: 'move',
           waitTime: 0,
           speed // 添加速度属性
@@ -245,7 +348,7 @@ export class TrajectorySystem {
       console.log('Movement paused, skipping update');
       return;
     }
-    
+
     if (!this.character.isMoving && this.character.currentTrajectoryIndex < this.character.trajectory.length - 1) {
       // 开始移动到下一个点
       this.character.currentTrajectoryIndex++;
@@ -269,17 +372,25 @@ export class TrajectorySystem {
         this.character.position = { ...this.character.targetPosition };
         const currentPoint = this.character.trajectory[this.character.currentTrajectoryIndex];
 
-        // 重新计算网格位置以确保准确性
-        const gridInfo = this.gridSystem.getGridInfo();
-        const cellWidth = this.canvasWidth / gridInfo.width;
-        const cellHeight = this.canvasHeight / gridInfo.height;
-        const gridX = Math.floor(this.character.position.x / cellWidth);
-        const gridY = Math.floor(this.character.position.y / cellHeight);
-
+        // 重新计算网格位置以确保准确性 - 使用GridSystem的转换逻辑
+        const gridPos = this.gridSystem.screenToGrid(this.character.position.x, this.character.position.y);
         this.character.gridPosition = {
-          gridX: Math.max(0, Math.min(gridX, gridInfo.width - 1)),
-          gridY: Math.max(0, Math.min(gridY, gridInfo.height - 1))
+          gridX: gridPos.gridX,
+          gridY: gridPos.gridY
         };
+
+        // 调试坐标转换的准确性
+        const reverseConversion = this.gridSystem.gridToScreen(gridPos.gridX + 0.5, gridPos.gridY + 0.5);
+        console.log('🔄 Position Conversion Debug:', {
+          original_canvas_pos: this.character.position,
+          converted_grid_pos: gridPos,
+          reverse_canvas_pos: reverseConversion,
+          conversion_error: {
+            x: Math.abs(this.character.position.x - reverseConversion.x),
+            y: Math.abs(this.character.position.y - reverseConversion.y)
+          }
+        });
+
         this.character.isMoving = false;
         console.log('ARTIST到达目标点:', {
           position: this.character.position,
@@ -305,29 +416,89 @@ export class TrajectorySystem {
         const moveX = (dx / distance) * moveDistance;
         const moveY = (dy / distance) * moveDistance;
 
-        this.character.position.x += moveX;
-        this.character.position.y += moveY;
+        // 计算新的位置
+        const newX = this.character.position.x + moveX;
+        const newY = this.character.position.y + moveY;
 
-        // 更新网格位置 - 使用实际的画布尺寸计算
+        // 🔧 CRITICAL FIX: 使用GridSystem统一的边界计算方法
         const gridInfo = this.gridSystem.getGridInfo();
-        const cellWidth = this.canvasWidth / gridInfo.width;
-        const cellHeight = this.canvasHeight / gridInfo.height;
-        const gridX = Math.floor(this.character.position.x / cellWidth);
-        const gridY = Math.floor(this.character.position.y / cellHeight);
+        const canvasDims = this.gridSystem.getCanvasDimensions(); // 从GridSystem获取准确的canvas尺寸
 
+        // 重新计算实际的单元格尺寸
+        const actualCellWidth = canvasDims.width / gridInfo.width;
+        const actualCellHeight = canvasDims.height / gridInfo.height;
+
+        // 🚨 KEY FIX: 使用更严格的边界计算 - 确保下边界绝对精准
+        const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3; // 减少边距以更严格控制
+        const minValidX = margin;
+        const minValidY = margin;
+        const maxValidX = canvasDims.width - margin;
+        const maxValidY = canvasDims.height - margin; // 使用GridSystem的实际canvas高度
+
+        // 🎯 强制边界限制 - 绝对不允许超出
+        let finalX = newX;
+        let finalY = newY;
+
+        // X轴边界检查
+        if (finalX < minValidX) finalX = minValidX;
+        if (finalX > maxValidX) finalX = maxValidX;
+
+        // Y轴边界检查 - 特别严格的下边界控制
+        if (finalY < minValidY) finalY = minValidY;
+        if (finalY > maxValidY) {
+          finalY = maxValidY;
+          console.error('🔴 PREVENTED LOWER BOUNDARY VIOLATION:', {
+            intended: newY,
+            clamped: finalY,
+            maxValid: maxValidY,
+            canvasHeight: canvasDims.height,
+            violation: newY - maxValidY
+          });
+        }
+
+        // 验证最终位置绝对在边界内
+        const boundaryViolation = finalX !== newX || finalY !== newY;
+        if (boundaryViolation) {
+          console.warn('🚨 MOVEMENT CLAMPED TO PREVENT BOUNDARY VIOLATION:', {
+            intended: { x: newX, y: newY },
+            final: { x: finalX, y: finalY },
+            boundaries: { minX: minValidX, maxX: maxValidX, minY: minValidY, maxY: maxValidY },
+            canvasDims,
+            gridInfo,
+            margin
+          });
+        }
+
+        // 设置最终位置
+        this.character.position.x = finalX;
+        this.character.position.y = finalY;
+
+        // 更新网格位置 - 使用GridSystem的统一转换逻辑
+        const gridPos = this.gridSystem.screenToGrid(this.character.position.x, this.character.position.y);
         this.character.gridPosition = {
-          gridX: Math.max(0, Math.min(gridX, gridInfo.width - 1)),
-          gridY: Math.max(0, Math.min(gridY, gridInfo.height - 1))
+          gridX: gridPos.gridX,
+          gridY: gridPos.gridY
         };
+
+        // 额外验证：确保最终位置确实在边界内
+        if (this.character.position.y > maxValidY || this.character.position.y < minValidY ||
+            this.character.position.x > maxValidX || this.character.position.x < minValidX) {
+          console.error('🚨 CRITICAL ERROR: Final position still outside boundaries!', {
+            position: this.character.position,
+            boundaries: { minX: minValidX, maxX: maxValidX, minY: minValidY, maxY: maxValidY }
+          });
+
+          // 强制修正位置
+          this.character.position.x = Math.max(minValidX, Math.min(maxValidX, this.character.position.x));
+          this.character.position.y = Math.max(minValidY, Math.min(maxValidY, this.character.position.y));
+        }
 
         // 调试信息
         if (Math.random() < 0.01) { // 偶尔打印调试信息
           console.log('Position update:', {
             canvasPos: { x: this.character.position.x, y: this.character.position.y },
-            canvasDims: { width: this.canvasWidth, height: this.canvasHeight },
-            cellDims: { width: cellWidth, height: cellHeight },
-            gridPos: { x: gridX, y: gridY },
-            finalGrid: this.character.gridPosition,
+            canvasDims,
+            gridPos: this.character.gridPosition,
             currentSpeed
           });
         }
@@ -347,7 +518,7 @@ export class TrajectorySystem {
     }
     
     if (now >= this.nextEvaluationTime) {
-      console.log('=== 20秒评估时间到，触发自动评估 ===');
+      console.log('=== 5秒评估时间到，触发自动评估 ===');
       console.log('Current time:', now);
       console.log('Next evaluation time was:', this.nextEvaluationTime);
       console.log('Character moving:', this.character.isMoving);
@@ -405,8 +576,8 @@ export class TrajectorySystem {
         personality: this.character.personality
       });
 
-      // 组合完整的评价文本
-      const fullEvaluation = this.formatEvaluationText(aiEvaluation);
+      // AI服务返回的是 { sight, thought, confidence }
+      const fullEvaluation = `[Observation] ${aiEvaluation.sight}\n\n[Thought] ${aiEvaluation.thought}`;
 
       // 更新角色的评价信息
       this.character.lastEvaluation = {
@@ -420,7 +591,7 @@ export class TrajectorySystem {
       console.log('=== 准备触发AI评估回调 ===');
       console.log('回调函数存在:', !!this.onEvaluationCallback);
       console.log('AI评估结果:', aiEvaluation);
-      
+
       if (this.onEvaluationCallback) {
         console.log('正在调用onEvaluationCallback...');
         this.onEvaluationCallback(aiEvaluation);
@@ -445,15 +616,11 @@ export class TrajectorySystem {
     }
   }
 
-  private formatEvaluationText(aiEvaluation: { artistic: string; cultural: string; critique: string; confidence: number }): string {
-    return `【艺术视角】${aiEvaluation.artistic}\n\n【文化解读】${aiEvaluation.cultural}\n\n【批判思考】${aiEvaluation.critique}`;
-  }
-
   private generateFallbackEvaluation(keywords: string[], contextualKeywords: string[]): string {
-    const primaryKeyword = keywords[0] || '未知空间';
-    const contextDescription = contextualKeywords.slice(0, 3).join('、') || '周边环境';
-    
-    return `作为ARTIST，我观察到这里的"${primaryKeyword}"特质。在${contextDescription}的环境中，这个位置体现了798艺术区的多重矛盾：商业与艺术的博弈、传统与前卫的对话、本土与国际的交融。这种复杂性正是当代艺术生态的真实写照。`;
+    const primaryKeyword = keywords[0] || 'Unknown Space';
+    const contextDescription = contextualKeywords.slice(0, 3).join(', ') || 'Surrounding Environment';
+
+    return `As ARTIST, I observe the "${primaryKeyword}" quality here. In the environment of ${contextDescription}, this location embodies the multiple contradictions of the 798 Art District: the game between commerce and art, the dialogue between tradition and avant-garde, the fusion of local and international. This complexity is the true portrayal of the contemporary art ecology.`;
   }
 
   private generateNewTrajectory(): void {
@@ -477,26 +644,36 @@ export class TrajectorySystem {
 
     // 生成新的路径
     for (let i = 0; i < 15; i++) {
-      const margin = 10; // 10px边距
-      const nextCanvasX = margin + Math.random() * (this.canvasWidth - 2 * margin);
-      const nextCanvasY = margin + Math.random() * (this.canvasHeight - 2 * margin);
-      
-      // 转换到网格坐标 - 使用实际画布尺寸计算
+      // 🔧 使用GridSystem的统一边界计算
       const gridInfo = this.gridSystem.getGridInfo();
-      const cellWidth = this.canvasWidth / gridInfo.width;
-      const cellHeight = this.canvasHeight / gridInfo.height;
-      const gridPos = {
-        x: nextCanvasX,
-        y: nextCanvasY,
-        gridX: Math.max(0, Math.min(Math.floor(nextCanvasX / cellWidth), gridInfo.width - 1)),
-        gridY: Math.max(0, Math.min(Math.floor(nextCanvasY / cellHeight), gridInfo.height - 1))
-      };
-      
+      const canvasDims = this.gridSystem.getCanvasDimensions();
+
+      // 确保在网格范围内：0到gridInfo.width-1, 0到gridInfo.height-1
+      const randomGridX = Math.floor(Math.random() * gridInfo.width);
+      const randomGridY = Math.floor(Math.random() * gridInfo.height);
+
+      // 转换到画布坐标 - 在网格单元中心位置
+      const actualCellWidth = canvasDims.width / gridInfo.width;
+      const actualCellHeight = canvasDims.height / gridInfo.height;
+
+      const nextCanvasX = (randomGridX + 0.5) * actualCellWidth;
+      const nextCanvasY = (randomGridY + 0.5) * actualCellHeight;
+
+      // 🚨 使用与移动逻辑完全相同的边界检查
+      const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3;
+      const minValidX = margin;
+      const minValidY = margin;
+      const maxValidX = canvasDims.width - margin;
+      const maxValidY = canvasDims.height - margin; // 关键：使用GridSystem的canvas高度
+
+      const clampedX = Math.max(minValidX, Math.min(maxValidX, nextCanvasX));
+      const clampedY = Math.max(minValidY, Math.min(maxValidY, nextCanvasY));
+
       newTrajectory.push({
-        x: nextCanvasX,
-        y: nextCanvasY,
-        gridX: gridPos.gridX,
-        gridY: gridPos.gridY,
+        x: clampedX,
+        y: clampedY,
+        gridX: randomGridX,
+        gridY: randomGridY,
         action: Math.random() < 0.3 ? 'evaluate' : 'observe',
         waitTime: Math.random() < 0.3 ? 4000 : 2000
       });
@@ -555,7 +732,7 @@ export class TrajectorySystem {
   }
 
   // 设置AI评价回调
-  public setEvaluationCallback(callback: (evaluation: { artistic: string; cultural: string; critique: string; confidence: number }) => void): void {
+  public setEvaluationCallback(callback: (evaluation: { sight: string; thought: string; confidence: number }) => void): void {
     this.onEvaluationCallback = callback;
   }
 
@@ -595,47 +772,65 @@ export class TrajectorySystem {
 
   // 设置画布尺寸
   public setCanvasDimensions(width: number, height: number): void {
+    const oldWidth = this.canvasWidth;
+    const oldHeight = this.canvasHeight;
+
+    // 🔧 重要：先更新GridSystem的canvas尺寸，确保同步
+    this.gridSystem.updateCanvasDimensions(width, height);
     this.canvasWidth = width;
     this.canvasHeight = height;
-    
-    // 随机定位在中心区域（20%边距）
-    const marginPercent = 0.2; // 20%边距
-    const availableWidth = width * (1 - 2 * marginPercent);
-    const availableHeight = height * (1 - 2 * marginPercent);
-    
-    const canvasX = width * marginPercent + Math.random() * availableWidth;
-    const canvasY = height * marginPercent + Math.random() * availableHeight;
-    
-    // 计算对应的网格位置
-    const gridInfo = this.gridSystem.getGridInfo();
-    const cellWidth = width / gridInfo.width;
-    const cellHeight = height / gridInfo.height;
-    const gridX = Math.max(0, Math.min(Math.floor(canvasX / cellWidth), gridInfo.width - 1));
-    const gridY = Math.max(0, Math.min(Math.floor(canvasY / cellHeight), gridInfo.height - 1));
-    
-    this.character.position.x = canvasX;
-    this.character.position.y = canvasY;
-    this.character.targetPosition.x = canvasX;
-    this.character.targetPosition.y = canvasY;
-    this.character.gridPosition.gridX = gridX;
-    this.character.gridPosition.gridY = gridY;
-    
-    console.log('========== CANVAS DEBUG ==========');
-    console.log('Canvas dimensions set:', { width, height, gridInfo });
-    console.log('Character position set to:', { 
-      canvasX, canvasY,
-      gridX, gridY,
-      cellWidth, cellHeight,
-      expectedCenter: { x: width * 0.5, y: height * 0.5 }
-    });
-    console.log('Character object after update:', {
-      position: this.character.position,
-      gridPosition: this.character.gridPosition
-    });
-    console.log('==================================');
-    
-    // 重新生成轨迹以确保在新的画布尺寸内
-    this.generateInitialTrajectory();
+
+    // 检查是否需要重新定位角色（避免频繁重定位）
+    const isInitialSetup = oldWidth === 600 && oldHeight === 400; // 检测是否为初始默认尺寸
+    const sizeChanged = oldWidth !== width || oldHeight !== height;
+
+    if (isInitialSetup || sizeChanged) {
+      console.log(`Canvas dimensions changed from ${oldWidth}x${oldHeight} to ${width}x${height}, repositioning character...`);
+
+      // 🔧 使用GridSystem的统一方法获取尺寸信息
+      const gridInfo = this.gridSystem.getGridInfo();
+      const canvasDims = this.gridSystem.getCanvasDimensions();
+
+      const oldCellWidth = oldWidth / gridInfo.width;
+      const oldCellHeight = oldHeight / gridInfo.height;
+      const newCellWidth = canvasDims.width / gridInfo.width;
+      const newCellHeight = canvasDims.height / gridInfo.height;
+
+      // 保持相对网格位置不变，只调整画布坐标
+      const currentGridX = this.character.gridPosition.gridX;
+      const currentGridY = this.character.gridPosition.gridY;
+
+      const newCanvasX = (currentGridX + 0.5) * newCellWidth;
+      const newCanvasY = (currentGridY + 0.5) * newCellHeight;
+
+      // 🚨 使用与移动逻辑完全相同的边界检查
+      const margin = Math.min(newCellWidth, newCellHeight) * 0.3;
+      const minValidX = margin;
+      const minValidY = margin;
+      const maxValidX = canvasDims.width - margin;
+      const maxValidY = canvasDims.height - margin; // 关键：使用GridSystem的canvas高度
+
+      const clampedX = Math.max(minValidX, Math.min(maxValidX, newCanvasX));
+      const clampedY = Math.max(minValidY, Math.min(maxValidY, newCanvasY));
+
+      this.character.position.x = clampedX;
+      this.character.position.y = clampedY;
+      this.character.targetPosition.x = clampedX;
+      this.character.targetPosition.y = clampedY;
+
+      console.log('Character position scaled to new canvas size:', {
+        oldPosition: { x: this.character.position.x, y: this.character.position.y },
+        newPosition: { x: clampedX, y: clampedY },
+        gridPosition: { x: currentGridX, y: currentGridY },
+        oldCellSize: { width: oldCellWidth, height: oldCellHeight },
+        newCellSize: { width: newCellWidth, height: newCellHeight }
+      });
+
+      // 重新生成轨迹以确保在新的画布尺寸内
+      this.generateInitialTrajectory();
+    } else {
+      console.log(`Canvas dimensions unchanged (${width}x${height}), keeping character position`);
+    }
   }
 
   // 暂停/恢复移动
@@ -644,7 +839,7 @@ export class TrajectorySystem {
     console.log('Movement toggled:', this.isPaused ? 'PAUSED' : 'RESUMED');
     
     if (!this.isPaused) {
-      // 恢复移动时，重新设置评价时间，重新开始20秒倒计时
+      // 恢复移动时，重新设置评价时间，重新开始5秒倒计时
       this.nextEvaluationTime = Date.now() + this.evaluationInterval;
       console.log('🔄 Movement resumed, evaluation timer reset. Next evaluation at:', this.nextEvaluationTime);
     } else {
@@ -682,5 +877,16 @@ export class TrajectorySystem {
   // 获取暂停状态
   public isPausedState(): boolean {
     return this.isPaused;
+  }
+
+  // Hash string to generate consistent seed for each artist
+  private hashString(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
   }
 }
