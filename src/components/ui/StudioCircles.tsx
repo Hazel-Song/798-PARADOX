@@ -12,6 +12,7 @@ export interface StudioCircle {
   gridKey: string;
   createdAt: number;
   isAnimating: boolean;
+  evaluationResult?: 'demolish' | 'passed'; // 政府评估结果
 }
 
 interface StudioCirclesProps {
@@ -26,6 +27,7 @@ interface StudioCirclesProps {
 export interface StudioCirclesRef {
   getCircles: () => StudioCircle[];
   setCircles: (circles: StudioCircle[]) => void;
+  updateCircleEvaluation: (circleId: string, result: 'demolish' | 'passed') => void; // 新增：更新评估结果
 }
 
 const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
@@ -46,6 +48,12 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
     setCircles: (newCircles: StudioCircle[]) => {
       console.log('🔄 StudioCircles: Setting circles via ref:', newCircles.length);
       setCircles(newCircles);
+    },
+    updateCircleEvaluation: (circleId: string, result: 'demolish' | 'passed') => {
+      console.log(`🏛️ StudioCircles: Updating circle ${circleId} evaluation to ${result}`);
+      setCircles(prev => prev.map(circle =>
+        circle.id === circleId ? { ...circle, evaluationResult: result } : circle
+      ));
     }
   }));
 
@@ -152,51 +160,133 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
 
         const currentRadius = circle.radius * progress;
 
-        // 绘制圆形外轮廓 - 1px虚线
-        ctx.save();
-        ctx.globalAlpha = 0.6;
-        ctx.strokeStyle = '#F9F0D3';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]); // 虚线：4像素实线，4像素空白
-
-        ctx.beginPath();
-        ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
-        ctx.stroke();
-
-        // 绘制内部斜向点阵（只在圆形内部）
-        if (progress > 0.3) { // 延迟显示点阵
+        // 根据评估结果决定绘制样式
+        if (circle.evaluationResult === 'demolish') {
+          // demolish状态：没有轮廓，点阵颜色变为#FF550F
+          ctx.save();
           ctx.globalAlpha = 0.5;
           const dotSize = 1.5;
           const spacing = 10;
 
-          // 计算点阵范围
           const minX = circle.centerX - currentRadius;
           const maxX = circle.centerX + currentRadius;
           const minY = circle.centerY - currentRadius;
           const maxY = circle.centerY + currentRadius;
 
-          ctx.fillStyle = '#F9F0D3';
+          ctx.fillStyle = '#FF550F';
 
           for (let x = minX; x <= maxX; x += spacing) {
             for (let y = minY; y <= maxY; y += spacing) {
-              // 斜向偏移模式 - 每隔一行偏移半个间距
               const offsetX = x + ((Math.floor((y - minY) / spacing) % 2) * spacing / 2);
-
-              // 检查点是否在圆形内部
               const distanceFromCenter = Math.sqrt(
                 Math.pow(offsetX - circle.centerX, 2) + Math.pow(y - circle.centerY, 2)
               );
 
-              if (distanceFromCenter <= currentRadius - 10) { // 留一些边距
+              if (distanceFromCenter <= currentRadius - 10) {
                 ctx.beginPath();
                 ctx.arc(offsetX, y, dotSize, 0, 2 * Math.PI);
                 ctx.fill();
               }
             }
           }
-        }
 
-        ctx.restore();
+          ctx.restore();
+        } else if (circle.evaluationResult === 'passed') {
+          // passed状态：30%透明度橙色底 + 边框1px #FF550F色 + 内部#FF550F色斜线填充(100%透明度)
+          ctx.save();
+
+          // 绘制30%透明度橙色底色
+          ctx.globalAlpha = 0.3;
+          ctx.fillStyle = '#FF550F';
+          ctx.beginPath();
+          ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
+          ctx.fill();
+
+          // 绘制外轮廓
+          ctx.globalAlpha = 0.6;
+          ctx.strokeStyle = '#FF550F';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
+          ctx.stroke();
+
+          // 绘制斜线填充 (100%透明度)
+          ctx.globalAlpha = 1.0;
+          ctx.strokeStyle = '#FF550F';
+          ctx.lineWidth = 1;
+
+          // 创建圆形裁剪区域
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(circle.centerX, circle.centerY, currentRadius - 5, 0, 2 * Math.PI);
+          ctx.clip();
+
+          // 绘制斜线（45度角）
+          const lineSpacing = 8;
+          const minX = circle.centerX - currentRadius;
+          const maxX = circle.centerX + currentRadius;
+          const minY = circle.centerY - currentRadius;
+          const maxY = circle.centerY + currentRadius;
+
+          for (let offset = -currentRadius * 2; offset < currentRadius * 2; offset += lineSpacing) {
+            ctx.beginPath();
+            ctx.moveTo(minX, minY + offset);
+            ctx.lineTo(maxX, maxY + offset);
+            ctx.stroke();
+          }
+
+          ctx.restore();
+
+          // 绘制#FF550F色圆心点
+          ctx.fillStyle = '#FF550F';
+          ctx.beginPath();
+          ctx.arc(circle.centerX, circle.centerY, 2, 0, 2 * Math.PI);
+          ctx.fill();
+
+          ctx.restore();
+        } else {
+          // 默认状态：原始样式（未被评估）
+          ctx.save();
+          ctx.globalAlpha = 0.6;
+          ctx.strokeStyle = '#F9F0D3';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+
+          ctx.beginPath();
+          ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
+          ctx.stroke();
+
+          // 绘制内部斜向点阵
+          if (progress > 0.3) {
+            ctx.globalAlpha = 0.5;
+            const dotSize = 1.5;
+            const spacing = 10;
+
+            const minX = circle.centerX - currentRadius;
+            const maxX = circle.centerX + currentRadius;
+            const minY = circle.centerY - currentRadius;
+            const maxY = circle.centerY + currentRadius;
+
+            ctx.fillStyle = '#F9F0D3';
+
+            for (let x = minX; x <= maxX; x += spacing) {
+              for (let y = minY; y <= maxY; y += spacing) {
+                const offsetX = x + ((Math.floor((y - minY) / spacing) % 2) * spacing / 2);
+                const distanceFromCenter = Math.sqrt(
+                  Math.pow(offsetX - circle.centerX, 2) + Math.pow(y - circle.centerY, 2)
+                );
+
+                if (distanceFromCenter <= currentRadius - 10) {
+                  ctx.beginPath();
+                  ctx.arc(offsetX, y, dotSize, 0, 2 * Math.PI);
+                  ctx.fill();
+                }
+              }
+            }
+          }
+
+          ctx.restore();
+        }
 
         // 动画完成后标记
         if (progress >= 1 && circle.isAnimating) {

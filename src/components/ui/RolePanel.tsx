@@ -7,12 +7,14 @@ interface RolePanelProps {
   roles: PeriodRoles;
   className?: string;
   currentKeywords?: string[]; // 新增：当前观察的关键词
+  governmentInputs?: string[]; // 新增：政府输入文本框内容（最多3个）
 }
 
 const RolePanel: React.FC<RolePanelProps> = ({
   roles,
   className = '',
-  currentKeywords = []
+  currentKeywords = [],
+  governmentInputs = [] // 新增默认值
 }) => {
   const roleKeys = ['artist', 'government', 'visitor'] as const;
   const availableRoles = roleKeys.filter(key => roles[key]);
@@ -80,6 +82,20 @@ const RolePanel: React.FC<RolePanelProps> = ({
                       </span>
                     </div>
                   ))}
+
+                  {/* 政府角色：在 assess and demolish 下方显示3个输入文本框 */}
+                  {roleKey === 'government' && (
+                    <div className="mt-2 space-y-1">
+                      {[0, 1, 2].map((index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <div className="w-1.5 h-1.5 bg-white/30 rounded-sm flex-shrink-0"></div>
+                          <div className="text-[10px] font-mono px-1 py-0.5 bg-white/10 border border-white/20 text-white/70 min-h-[16px] flex-1">
+                            {governmentInputs[index] || ''}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-interface CommentTag {
+export interface CommentTag {
   id: string;
   position: { x: number; y: number };
   content: {
@@ -12,6 +12,7 @@ interface CommentTag {
   keywords: string[];
   timestamp: number;
   characterId: string;
+  evaluationResult?: 'demolish' | 'passed'; // 新增：政府评估结果
 }
 
 interface CommentTagsProps {
@@ -91,7 +92,9 @@ export default function CommentTags({ tags }: CommentTagsProps) {
             <div className="relative group">
               {/* 柔和外层光晕 */}
               <div
-                className="absolute w-8 h-8 rounded-full blur-sm bg-yellow-400 opacity-30"
+                className={`absolute w-8 h-8 rounded-full blur-sm opacity-30 ${
+                  tag.evaluationResult === 'passed' ? 'bg-orange-500' : 'bg-yellow-400'
+                }`}
                 style={{
                   left: '0',
                   top: '0',
@@ -101,7 +104,11 @@ export default function CommentTags({ tags }: CommentTagsProps) {
 
               {/* 核心亮点 */}
               <div
-                className="absolute w-2 h-2 rounded-full bg-yellow-400 shadow-yellow-400/80 shadow-lg"
+                className={`absolute w-2 h-2 rounded-full shadow-lg ${
+                  tag.evaluationResult === 'passed'
+                    ? 'bg-orange-500 shadow-orange-500/80'
+                    : 'bg-yellow-400 shadow-yellow-400/80'
+                }`}
                 style={{
                   left: '0',
                   top: '0',

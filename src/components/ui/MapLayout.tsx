@@ -15,6 +15,7 @@ import PeriodInfoPanel from './PeriodInfoPanel';
 import RolePanel from './RolePanel';
 import DebugPanel from './DebugPanel';
 import ConfirmDialog from './ConfirmDialog';
+import InputInteractionSystem from './InputInteractionSystem';
 import { GridSystem } from '@/lib/map-grid/GridSystem';
 import { Character } from '@/types/character';
 import { timelineData } from '@/lib/data/timelineData';
@@ -113,6 +114,15 @@ const MapLayout = () => {
 
   // 工作室区域状态
   const [studioAreas, setStudioAreas] = useState<Set<string>>(new Set());
+
+  // 舆论热度状态 - 被政府移除的工作室圆心点数量
+  const [publicOpinionHeat, setPublicOpinionHeat] = useState<number>(0);
+
+  // 政府输入文本状态
+  const [governmentInputs, setGovernmentInputs] = useState<string[]>([]);
+
+  // 政府角色激活状态
+  const [isGovernmentActive, setIsGovernmentActive] = useState(false);
 
   // 状态快照管理
   const [periodSnapshots, setPeriodSnapshots] = useState<Map<string, PeriodSnapshot>>(new Map());
@@ -360,6 +370,11 @@ const MapLayout = () => {
       setCurrentPeriodId(timelineData.periods[1].id);
       // 解锁下一个时期
       setMaxUnlockedPeriodIndex(1);
+
+      // 激活政府角色（进入2002-2006阶段）
+      console.log('🏛️ Activating government role for 2002-2006 period');
+      setIsGovernmentActive(true);
+      setCheckedItems(prev => ({ ...prev, government: true }));
     }
   }, [commentTags.length, currentPeriodId]);
 
@@ -495,6 +510,100 @@ const MapLayout = () => {
     }
   };
 
+  // 政府工作室评估处理器
+  const handleStudioEvaluation = (circleId: string, result: 'demolish' | 'passed') => {
+    console.log(`🏛️ Studio evaluation received: ${result} for circle ${circleId}`);
+
+    // 更新工作室圆形的评估状态
+    if (studioCirclesRef.current) {
+      studioCirclesRef.current.updateCircleEvaluation(circleId, result);
+    }
+
+    // 如果是demolish，移除对应的艺术家圆心点（comment tag）
+    if (result === 'demolish') {
+      // 找到对应的工作室圆形
+      const studioCircles = studioCirclesRef.current?.getCircles() || [];
+      const targetCircle = studioCircles.find(circle => circle.id === circleId);
+
+      if (targetCircle) {
+        console.log(`🗑️ Demolish: Removing artist comment tags at circle center (${targetCircle.centerX}, ${targetCircle.centerY})`);
+
+        // 移除在该圆形中心位置附近的艺术家评论标签
+        setCommentTags(prev => {
+          const filteredTags = prev.filter(tag => {
+            // 计算标签与圆心的距离
+            const distance = Math.sqrt(
+              Math.pow(tag.position.x - targetCircle.centerX, 2) +
+              Math.pow(tag.position.y - targetCircle.centerY, 2)
+            );
+
+            // 如果距离小于15像素，认为是需要移除的艺术家圆心点
+            const shouldRemove = distance < 15;
+
+            if (shouldRemove) {
+              console.log(`🗑️ Removing artist center point tag:`, tag.id, `distance: ${distance.toFixed(1)}px`);
+            }
+
+            return !shouldRemove;
+          });
+
+          console.log(`🗑️ Demolish cleanup: ${prev.length} -> ${filteredTags.length} tags`);
+          return filteredTags;
+        });
+      }
+
+      setPublicOpinionHeat(prev => prev + 1);
+      console.log('🔥 Public opinion heat increased due to demolition');
+    } else if (result === 'passed') {
+      // 如果是passed，更新对应圆心点为橙色
+      const studioCircles = studioCirclesRef.current?.getCircles() || [];
+      const targetCircle = studioCircles.find(circle => circle.id === circleId);
+
+      if (targetCircle) {
+        console.log(`🟠 Passed: Updating artist comment tags to orange at circle center (${targetCircle.centerX}, ${targetCircle.centerY})`);
+
+        setCommentTags(prev => {
+          return prev.map(tag => {
+            // 计算标签与圆心的距离
+            const distance = Math.sqrt(
+              Math.pow(tag.position.x - targetCircle.centerX, 2) +
+              Math.pow(tag.position.y - targetCircle.centerY, 2)
+            );
+
+            // 如果距离小于15像素，更新为passed状态
+            if (distance < 15) {
+              console.log(`🟠 Updating tag to passed (orange):`, tag.id, `distance: ${distance.toFixed(1)}px`);
+              return {
+                ...tag,
+                evaluationResult: 'passed' as const
+              };
+            }
+
+            return tag;
+          });
+        });
+      }
+    }
+  };
+
+  // 舆论热度更新处理器
+  const handlePublicOpinionHeatUpdate = (increment: number) => {
+    setPublicOpinionHeat(prev => prev + increment);
+    console.log(`📈 Public opinion heat updated by ${increment}`);
+  };
+
+  // 输入系统提交处理器
+  const handleInputSubmit = (input: string) => {
+    console.log('📝 Input submitted:', input);
+
+    // 添加到政府输入列表（最多3个）
+    setGovernmentInputs(prev => {
+      const newInputs = [...prev, input];
+      // 只保留最新的3个输入
+      return newInputs.slice(-3);
+    });
+  };
+
   const handleDebugDataUpdate = (data: {
     aiServiceStatus: { pending: number; processing: boolean };
     evaluationInterval: number;
@@ -612,6 +721,20 @@ const MapLayout = () => {
     if (gridSystemRef.current) {
       // TODO: 如果需要清空GridSystem的标签计数，在这里添加逻辑
     }
+
+    // 清空政府相关状态
+    setPublicOpinionHeat(0);
+    setGovernmentInputs([]);
+    setIsGovernmentActive(false);
+    setCheckedItems(prev => ({ ...prev, government: false }));
+
+    // 重置政府角色状态（通过ref）
+    if (wanderingGovernmentRef.current) {
+      wanderingGovernmentRef.current.pause();
+      // 注意：这里无法直接清空政府的内部状态，政府组件需要监听期间变化自行清理
+    }
+
+    console.log('🧹 Government states cleared for period rollback');
   };
 
   // 时期变化处理器
@@ -746,6 +869,18 @@ const MapLayout = () => {
         </div>
       )}
 
+      {/* 舆论热度指示器 - 左上角，在2002-2006及2006-2010期间显示 */}
+      {(currentPeriodId === 'period-2' || currentPeriodId === 'period-3') && (
+        <div className="absolute top-20 left-8 z-20">
+          <div className="flex items-center space-x-2">
+            <span className="text-white font-mono text-xs">Public Opinion Heat</span>
+            <div className="px-1.5 py-0.5 bg-white/20 border border-white/40 text-white font-mono text-xs">
+              {publicOpinionHeat}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 主布局区域 */}
       <div className="flex relative z-10 px-6 pb-6 h-[calc(100vh-120px)]">
 
@@ -801,6 +936,16 @@ const MapLayout = () => {
                 }}
               />
 
+              {/* 输入交互系统 - 在地图区域左下角 */}
+              {(currentPeriodId === 'period-2' || currentPeriodId === 'period-3') && (
+                <div className="absolute bottom-4 left-4 z-80">
+                  <InputInteractionSystem
+                    onInputSubmit={handleInputSubmit}
+                    isVisible={true}
+                  />
+                </div>
+              )}
+
               {/* 基础网格显示 - 简化的网格系统 */}
               {gridSystemRef.current && showGrid && (
                 <GridOverlay
@@ -821,7 +966,7 @@ const MapLayout = () => {
                   studioAreas={studioAreas}
                   commentTags={commentTags}
                   className="absolute inset-0 z-25"
-                  allowNewCircles={currentPeriodId === 'period-1'} // 只在第一阶段允许生成新圆形
+                  allowNewCircles={currentPeriodId === 'period-1' || currentPeriodId === 'period-2'} // 1995-2002和2002-2006都允许生成新圆形
                 />
               )}
 
@@ -845,14 +990,17 @@ const MapLayout = () => {
               })}
 
               {/* 政府角色系统 */}
-              {gridSystemRef.current && checkedItems.government && (
+              {gridSystemRef.current && studioCirclesRef.current && (
                 <WanderingGovernment
                   ref={wanderingGovernmentRef}
                   gridSystem={gridSystemRef.current}
-                  className="absolute inset-0 z-40"
-                  commentTags={commentTags}
-                  onTagRemove={handleTagRemove}
+                  className="absolute inset-0 z-75"
+                  studioCircles={studioCirclesRef.current.getCircles()}
+                  onStudioEvaluation={handleStudioEvaluation}
+                  onPublicOpinionHeatUpdate={handlePublicOpinionHeatUpdate}
                   currentPeriod={currentPeriod?.years || ''}
+                  isActive={isGovernmentActive}
+                  governmentInputs={governmentInputs}
                 />
               )}
 
@@ -923,6 +1071,7 @@ const MapLayout = () => {
             <RolePanel
               roles={currentRoles}
               currentKeywords={debugData.lastKeywords}
+              governmentInputs={governmentInputs}
             />
           </div>
 
