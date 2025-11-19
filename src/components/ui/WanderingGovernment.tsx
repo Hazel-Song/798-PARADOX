@@ -57,10 +57,13 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
   const [isTyping, setIsTyping] = useState(true); // true: 正在打字, false: 正在删除
   const [displayedText, setDisplayedText] = useState(''); // 当前显示的文本
 
-  // 橙色圆形扩展动画状态
-  const [expandingCircleRadius, setExpandingCircleRadius] = useState(0); // 扩展圆的当前半径
+  // 橙色圆形扩展动画状态 - 使用 ref 避免无限循环
+  const expandingCircleRadiusRef = useRef(0); // 扩展圆的当前半径
   const expandingCircleMaxRadius = 80; // 扩展圆的最大半径
   const expandingCircleSpeed = 2; // 扩展速度 (px/frame)
+
+  // 用ref保存governmentInputs，避免依赖数组导致的循环
+  const governmentInputsRef = useRef<string[]>(governmentInputs);
 
   const [evaluatedCircleIds, setEvaluatedCircleIds] = useState<Set<string>>(new Set());
   const [nextResult, setNextResult] = useState<'demolish' | 'passed'>('demolish'); // 下一个评估结果
@@ -99,22 +102,29 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
       setIsTyping(true);
       setDisplayedText('');
       // 清理扩展圆状态
-      setExpandingCircleRadius(0);
+      expandingCircleRadiusRef.current = 0;
     }
   }, [shouldShow, currentPeriod]);
 
   // 打字机动画效果 - 仅在评估过程中且有输入文本时运行
   useEffect(() => {
-    if (currentEvaluation?.status !== 'evaluating' || governmentInputs.length === 0) {
+    // 更新ref以获取最新的governmentInputs
+    governmentInputsRef.current = governmentInputs;
+  }, [governmentInputs]);
+
+  useEffect(() => {
+    if (currentEvaluation?.status !== 'evaluating' || governmentInputsRef.current.length === 0) {
       setDisplayedText('');
       return;
     }
 
-    const currentText = governmentInputs[typewriterTextIndex];
-    const typingSpeed = 100; // 打字速度 (ms)
-    const deletingSpeed = 50; // 删除速度 (ms)
-    const pauseAfterTyping = 1500; // 打字完成后暂停时间 (ms)
-    const pauseAfterDeleting = 500; // 删除完成后暂停时间 (ms)
+    const currentText = governmentInputsRef.current[typewriterTextIndex];
+    if (!currentText) return; // 安全检查
+
+    const typingSpeed = 33; // 打字速度 (ms) - 从100ms减少到33ms，3倍加速
+    const deletingSpeed = 17; // 删除速度 (ms) - 从50ms减少到17ms，3倍加速
+    const pauseAfterTyping = 500; // 打字完成后暂停时间 (ms) - 从1500ms减少到500ms
+    const pauseAfterDeleting = 200; // 删除完成后暂停时间 (ms) - 从500ms减少到200ms
 
     const timer = setTimeout(() => {
       if (isTyping) {
@@ -136,7 +146,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
         } else {
           // 删除完成，暂停后切换到下一个文本
           setTimeout(() => {
-            setTypewriterTextIndex((prev) => (prev + 1) % governmentInputs.length);
+            setTypewriterTextIndex((prev) => (prev + 1) % governmentInputsRef.current.length);
             setIsTyping(true);
           }, pauseAfterDeleting);
         }
@@ -144,7 +154,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
     }, isTyping ? typingSpeed : deletingSpeed);
 
     return () => clearTimeout(timer);
-  }, [currentEvaluation?.status, governmentInputs, typewriterTextIndex, typewriterCharIndex, isTyping]);
+  }, [currentEvaluation?.status, typewriterTextIndex, typewriterCharIndex, isTyping]);
 
   // 重置打字机状态当评估状态改变时
   useEffect(() => {
@@ -153,10 +163,10 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
       setTypewriterCharIndex(0);
       setIsTyping(true);
       setDisplayedText('');
-      setExpandingCircleRadius(0); // 重置扩展圆半径
+      expandingCircleRadiusRef.current = 0; // 重置扩展圆半径
     } else {
       setDisplayedText('');
-      setExpandingCircleRadius(0); // 清空扩展圆
+      expandingCircleRadiusRef.current = 0; // 清空扩展圆
     }
   }, [currentEvaluation?.status]);
 
@@ -365,14 +375,14 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
         ctx.strokeStyle = '#FF550F';
         ctx.lineWidth = 2;
         // 透明度随半径增加而减少
-        const alpha = Math.max(0.2, 1 - expandingCircleRadius / expandingCircleMaxRadius);
+        const alpha = Math.max(0.2, 1 - expandingCircleRadiusRef.current / expandingCircleMaxRadius);
         ctx.globalAlpha = alpha;
 
         ctx.beginPath();
         ctx.arc(
           currentEvaluation.position.x,
           currentEvaluation.position.y,
-          expandingCircleRadius,
+          expandingCircleRadiusRef.current,
           0,
           2 * Math.PI
         );
@@ -380,13 +390,12 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
 
         ctx.restore();
 
-        // 更新扩展圆半径
-        setExpandingCircleRadius(prev => {
-          if (prev >= expandingCircleMaxRadius) {
-            return 0; // 重置到0，开始新的循环
-          }
-          return prev + expandingCircleSpeed;
-        });
+        // 更新扩展圆半径 - 使用 ref 避免触发重新渲染
+        if (expandingCircleRadiusRef.current >= expandingCircleMaxRadius) {
+          expandingCircleRadiusRef.current = 0; // 重置到0，开始新的循环
+        } else {
+          expandingCircleRadiusRef.current += expandingCircleSpeed;
+        }
       }
 
       overlayCircles.forEach(circle => {
@@ -413,7 +422,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [overlayCircles, trajectory, gridSystem, shouldShow, currentEvaluation, expandingCircleRadius]);
+  }, [overlayCircles, trajectory, gridSystem, shouldShow, currentEvaluation]);
 
   if (!shouldShow) {
     return null;

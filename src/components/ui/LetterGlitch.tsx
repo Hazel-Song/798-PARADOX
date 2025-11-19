@@ -1,5 +1,18 @@
 import { useRef, useEffect } from 'react';
 
+interface Color {
+  r: number;
+  g: number;
+  b: number;
+}
+
+interface Letter {
+  char: string;
+  color: Color;
+  targetColor: Color;
+  colorProgress: number;
+}
+
 interface LetterGlitchProps {
   glitchColors?: string[];
   className?: string;
@@ -21,7 +34,7 @@ const LetterGlitch = ({
 }: LetterGlitchProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | null>(null);
-  const letters = useRef<any[]>([]);
+  const letters = useRef<Letter[]>([]);
   const grid = useRef({ columns: 0, rows: 0 });
   const context = useRef<CanvasRenderingContext2D | null>(null);
   const lastGlitchTime = useRef(Date.now());
@@ -36,11 +49,13 @@ const LetterGlitch = ({
     return lettersAndSymbols[Math.floor(Math.random() * lettersAndSymbols.length)];
   };
 
-  const getRandomColor = () => {
-    return glitchColors[Math.floor(Math.random() * glitchColors.length)];
+  const getRandomColor = (): Color => {
+    const hexColor = glitchColors[Math.floor(Math.random() * glitchColors.length)];
+    const rgbColor = hexToRgb(hexColor);
+    return rgbColor || { r: 255, g: 255, b: 255 }; // fallback to white if conversion fails
   };
 
-  const hexToRgb = (hex: string) => {
+  const hexToRgb = (hex: string): Color | null => {
     const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
     hex = hex.replace(shorthandRegex, (m, r, g, b) => {
       return r + r + g + g + b + b;
@@ -56,7 +71,7 @@ const LetterGlitch = ({
       : null;
   };
 
-  const interpolateColor = (start: any, end: any, factor: number) => {
+  const interpolateColor = (start: Color, end: Color, factor: number) => {
     const result = {
       r: Math.round(start.r + (end.r - start.r) * factor),
       g: Math.round(start.g + (end.g - start.g) * factor),

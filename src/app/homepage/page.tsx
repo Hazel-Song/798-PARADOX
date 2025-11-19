@@ -277,7 +277,7 @@ export default function Homepage() {
                 canvas.height = window.innerHeight;
 
                 let animationFrame: number;
-                let startTime = Date.now();
+                const startTime = Date.now();
 
                 let frameCount = 0;
                 const drawGlitchNoise = () => {

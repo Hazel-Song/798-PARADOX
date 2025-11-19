@@ -13,10 +13,15 @@ interface AIEvaluationResponse {
   confidence: number;
 }
 
+interface QueuedRequest extends AIEvaluationRequest {
+  resolve: (value: AIEvaluationResponse) => void;
+  reject: (reason?: unknown) => void;
+}
+
 export class AIEvaluationService {
   private apiKey: string;
   private baseUrl: string;
-  private requestQueue: AIEvaluationRequest[] = [];
+  private requestQueue: QueuedRequest[] = [];
   private isProcessing: boolean = false;
   private rateLimitDelay: number = 2000; // 2秒间隔避免频繁调用
 
@@ -38,7 +43,7 @@ export class AIEvaluationService {
         ...request,
         resolve,
         reject
-      } as any);
+      });
 
       // 开始处理队列
       if (!this.isProcessing) {
@@ -58,10 +63,10 @@ export class AIEvaluationService {
 
     try {
       const response = await this.callLLMAPI(request);
-      (request as any).resolve(response);
+      request.resolve(response);
     } catch (error) {
       console.error('AI评价失败:', error);
-      (request as any).reject(error);
+      request.reject(error);
     }
 
     // 等待间隔后处理下一个请求
@@ -220,7 +225,6 @@ The air is filled with the smell of rusted metal, sunlight slants through broken
     try {
       const sections = content.split('###').filter(section => section.trim());
 
-      let sight = '';
       let thought = '';
 
       sections.forEach(section => {

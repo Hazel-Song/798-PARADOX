@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import WanderingCharacter, { WanderingCharacterRef } from './WanderingCharacter';
 import WanderingGovernment, { WanderingGovernmentRef } from './WanderingGovernment';
 import GridCursor from './GridCursor';
@@ -9,7 +8,6 @@ import SimpleArtistDot from './SimpleArtistDot';
 import CommentTags, { CommentTag } from './CommentTags';
 import StudioCircles, { StudioCirclesRef, StudioCircle } from './StudioCircles';
 import GridOverlay from './GridOverlay';
-import PolygonOverlay from './PolygonOverlay';
 import Timeline from './Timeline';
 import PeriodInfoPanel from './PeriodInfoPanel';
 import RolePanel from './RolePanel';
@@ -1108,6 +1106,16 @@ const MapLayout = () => {
               )}
             </div>
           </div>
+
+          {/* 提示文本 - 地图容器外部，绝对定位不占据布局空间 */}
+          {(currentPeriodId === 'period-2' || currentPeriodId === 'period-3') && (
+            <div className="absolute left-4 pl-4 z-80" style={{ top: 'calc(83.333% + 4px)' }}>
+              <div className="text-[10px] font-mono text-[#FF550F] flex items-center">
+                <span className="mr-1">↑</span>
+                Try to voice your suggestions as much as possible, this will influence government rules to some extent...
+              </div>
+            </div>
+          )}
 
           {/* 时间线 - 在地图下方，占据剩余1/6高度 */}
           <div className="h-1/6 flex items-center">

@@ -2,8 +2,16 @@
 
 import React, { useState } from 'react';
 
+interface DebugData {
+  aiServiceStatus: { pending: number; processing: boolean };
+  evaluationInterval: number;
+  evaluationCount: number;
+  lastKeywords: string[];
+  timeRemaining: number;
+}
+
 interface DebugPanelProps {
-  debugData?: any;
+  debugData?: DebugData;
   className?: string;
   isVisible?: boolean;
   onToggleVisibility?: () => void;

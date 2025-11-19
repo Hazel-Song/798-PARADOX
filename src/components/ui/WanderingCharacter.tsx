@@ -132,17 +132,37 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
     const updateInterval = setInterval(() => {
       if (trajectorySystemRef.current) {
         const updatedCharacter = trajectorySystemRef.current.getCharacter();
-        setCharacter(updatedCharacter);
-        
+
+        // 只在角色状态实际变化时更新state，避免无意义的re-render
+        setCharacter(prevCharacter => {
+          // 检查是否有实质性变化
+          const hasPositionChanged = !prevCharacter ||
+            prevCharacter.position.x !== updatedCharacter.position.x ||
+            prevCharacter.position.y !== updatedCharacter.position.y;
+
+          const hasMovementChanged = !prevCharacter ||
+            prevCharacter.isMoving !== updatedCharacter.isMoving;
+
+          const hasEvaluationChanged = !prevCharacter?.lastEvaluation ||
+            !updatedCharacter.lastEvaluation ||
+            prevCharacter.lastEvaluation.timestamp !== updatedCharacter.lastEvaluation.timestamp;
+
+          // 如果有任何实质性变化，返回新对象；否则返回旧对象
+          if (hasPositionChanged || hasMovementChanged || hasEvaluationChanged) {
+            return updatedCharacter;
+          }
+          return prevCharacter;
+        });
+
         // 禁用CharacterRenderer更新，使用SimpleArtistDot代替
         // if (rendererRef.current) {
         //   rendererRef.current.setCharacter(updatedCharacter);
         // }
-        
+
         if (onCharacterUpdate) {
           onCharacterUpdate(updatedCharacter);
         }
-        
+
         // 更新AI服务状态
         const aiStatus = trajectorySystemRef.current.getAIServiceStatus();
         setAiServiceStatus(aiStatus);
@@ -159,14 +179,14 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
         }
 
         // 检查是否有新的评价
-        if (updatedCharacter.lastEvaluation && 
-            (!character || !character.lastEvaluation || 
+        if (updatedCharacter.lastEvaluation &&
+            (!character || !character.lastEvaluation ||
              updatedCharacter.lastEvaluation.timestamp > character.lastEvaluation.timestamp)) {
           const currentKeywords = trajectorySystemRef.current.getCurrentKeywords();
           if (onEvaluation) {
             onEvaluation(currentKeywords, updatedCharacter.lastEvaluation.evaluation);
           }
-          
+
           // 显示评价气泡 - 禁用，使用CommentTags代替
           // if (rendererRef.current &&
           //     updatedCharacter.lastEvaluation.evaluation !== '等待AI评价...' &&

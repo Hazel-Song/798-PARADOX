@@ -72,7 +72,7 @@ export default function CommentTags({ tags }: CommentTagsProps) {
         }
       }
     });
-  }, [visibleTags, hiddenTags]);
+  }, [visibleTags, visibleTags.length]);
 
   return (
     <div className="absolute inset-0 pointer-events-none z-50">
@@ -163,5 +163,3 @@ export default function CommentTags({ tags }: CommentTagsProps) {
     </div>
   );
 }
-
-export type { CommentTag };

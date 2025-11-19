@@ -78,8 +78,8 @@ export function useAIEvaluation({
       }));
 
       return evaluation;
-    } catch (error: any) {
-      const errorMessage = error.message || '评价生成失败';
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '评价生成失败';
       
       setState(prev => ({
         ...prev,
@@ -131,11 +131,11 @@ export function useAIEvaluation({
       }));
 
       return results;
-    } catch (error: any) {
+    } catch (error: unknown) {
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: error.message || '批量评价失败',
+        error: error instanceof Error ? error.message : '批量评价失败',
         queueStatus: service.getQueueStatus()
       }));
 

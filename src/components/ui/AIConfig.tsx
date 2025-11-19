@@ -68,8 +68,8 @@ export default function AIConfig({ onConfigUpdate }: AIConfigProps) {
         setErrorMessage(`API测试失败: ${response.status} ${errorData.error?.message || response.statusText}`);
         setTestStatus('error');
       }
-    } catch (error: any) {
-      setErrorMessage(`连接测试失败: ${error.message}`);
+    } catch (error: unknown) {
+      setErrorMessage(`连接测试失败: ${error instanceof Error ? error.message : String(error)}`);
       setTestStatus('error');
     }
   };

@@ -11,6 +11,7 @@ interface InputInteractionSystemProps {
 interface HistoryItem {
   userInput: string;
   policyFeedback: string;
+  timestamp: number; // 添加时间戳用于控制动画
 }
 
 // 预设的政策反馈模板
@@ -23,11 +24,11 @@ const POLICY_FEEDBACK_TEMPLATES = [
   "High-traffic zones prioritized for redevelopment planning"
 ];
 
-// 备选输入选项
+// 备选输入选项 - 英文翻译
 const SUGGESTED_INPUTS = [
-  "凭什么拆掉",
-  "评估标准是啥",
-  "艺术家好可怜"
+  "Why demolish it?",
+  "What are the criteria?",
+  "Artists are so pitiful"
 ];
 
 export default function InputInteractionSystem({
@@ -40,6 +41,10 @@ export default function InputInteractionSystem({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
+  const justSelectedSuggestion = useRef(false); // 跟踪是否刚选择了建议
+
+  // 政策反馈动画状态：index -> { loading: boolean, displayedText: string }
+  const [feedbackAnimations, setFeedbackAnimations] = useState<Record<number, { loading: boolean; displayedText: string }>>({});
 
   // 处理输入提交
   const handleSubmit = (e: React.FormEvent) => {
@@ -52,10 +57,18 @@ export default function InputInteractionSystem({
       const randomFeedback = POLICY_FEEDBACK_TEMPLATES[Math.floor(Math.random() * POLICY_FEEDBACK_TEMPLATES.length)];
 
       // 添加到历史记录
+      const newIndex = inputHistory.length;
       setInputHistory(prev => [...prev, {
         userInput: currentInput.trim(),
-        policyFeedback: randomFeedback
+        policyFeedback: randomFeedback,
+        timestamp: Date.now()
       }]);
+
+      // 初始化动画状态：先显示加载动画
+      setFeedbackAnimations(prev => ({
+        ...prev,
+        [newIndex]: { loading: true, displayedText: '' }
+      }));
 
       // 通知父组件 - 传递政策反馈文本
       if (onInputSubmit) {
@@ -70,15 +83,20 @@ export default function InputInteractionSystem({
 
   // 处理建议选项点击
   const handleSuggestionClick = (suggestion: string) => {
+    justSelectedSuggestion.current = true; // 标记刚选择了建议
     setCurrentInput(suggestion);
     setShowSuggestions(false);
     inputRef.current?.focus();
+    // 短暂延迟后重置标记，防止focus事件重新打开建议
+    setTimeout(() => {
+      justSelectedSuggestion.current = false;
+    }, 100);
   };
 
   // 键盘事件处理
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      handleSubmit(e as any);
+      handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>);
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
     }
@@ -91,18 +109,104 @@ export default function InputInteractionSystem({
     }
   }, [inputHistory]);
 
+  // 政策反馈动画效果
+  useEffect(() => {
+    const timers: NodeJS.Timeout[] = [];
+
+    inputHistory.forEach((item, index) => {
+      const animation = feedbackAnimations[index];
+
+      if (!animation) {
+        // 如果没有动画状态，初始化为加载状态
+        setFeedbackAnimations(prev => ({
+          ...prev,
+          [index]: { loading: true, displayedText: '' }
+        }));
+        return;
+      }
+
+      if (animation.loading) {
+        // 2秒后开始打字机效果
+        const timer = setTimeout(() => {
+          setFeedbackAnimations(prev => ({
+            ...prev,
+            [index]: { loading: false, displayedText: '' }
+          }));
+
+          // 开始打字机效果
+          let charIndex = 0;
+          const text = item.policyFeedback;
+          const typewriterTimer = setInterval(() => {
+            if (charIndex <= text.length) {
+              setFeedbackAnimations(prev => ({
+                ...prev,
+                [index]: { loading: false, displayedText: text.substring(0, charIndex) }
+              }));
+              charIndex++;
+            } else {
+              clearInterval(typewriterTimer);
+            }
+          }, 50); // 50ms per character for typewriter effect
+
+          timers.push(typewriterTimer);
+        }, 2000); // 2 seconds loading animation
+
+        timers.push(timer);
+      }
+    });
+
+    return () => {
+      timers.forEach(timer => clearTimeout(timer));
+    };
+  }, [inputHistory, feedbackAnimations]);
+
   if (!isVisible) {
     return null;
   }
 
   return (
-    <div
-      className={`bg-black/80 border border-white/30 ${className}`}
-      style={{
-        width: '300px',
-        height: '250px'
-      }}
-    >
+    <>
+      {/* Custom scrollbar styles */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .history-scroll::-webkit-scrollbar {
+          width: 4px;
+        }
+        .history-scroll::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.1);
+        }
+        .history-scroll::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 2px;
+        }
+        .history-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.5);
+        }
+
+        @keyframes loadingDots {
+          0%, 20% {
+            content: '.';
+          }
+          40% {
+            content: '..';
+          }
+          60%, 100% {
+            content: '...';
+          }
+        }
+
+        .loading-dots::after {
+          content: '...';
+          animation: loadingDots 1.5s infinite;
+        }
+      `}} />
+
+      <div
+        className={`bg-black/80 border border-white/30 ${className}`}
+        style={{
+          width: '300px',
+          height: '250px'
+        }}
+      >
       {/* 标题 */}
       <div className="p-3 border-b border-white/20">
         <h4 className="text-[10px] font-mono text-white/70 uppercase tracking-wider">
@@ -113,7 +217,7 @@ export default function InputInteractionSystem({
       {/* 输入历史记录区域 */}
       <div
         ref={historyRef}
-        className="px-3 py-2 overflow-y-auto"
+        className="history-scroll px-3 py-2 overflow-y-auto"
         style={{ height: '160px' }}
       >
         {inputHistory.length === 0 ? (
@@ -122,18 +226,28 @@ export default function InputInteractionSystem({
           </div>
         ) : (
           <div className="space-y-2">
-            {inputHistory.map((item, index) => (
-              <div key={index} className="space-y-1">
-                {/* 用户输入 */}
-                <div className="text-[10px] font-mono text-white/70 p-1 bg-white/10 border border-white/20">
-                  {item.userInput}
+            {inputHistory.map((item, index) => {
+              const animation = feedbackAnimations[index];
+              return (
+                <div key={index} className="space-y-1">
+                  {/* 用户输入 */}
+                  <div className="text-[10px] font-mono text-white/70 p-1 bg-white/10 border border-white/20">
+                    {item.userInput}
+                  </div>
+                  {/* 政策反馈 - 新设计：无背景和边框，有图标，缩进，动画 */}
+                  <div className="text-[10px] font-mono text-[#FF550F] pl-6 relative">
+                    {/* 回车图标 */}
+                    <span className="absolute left-0 top-0">↵</span>
+                    {/* 加载动画或打字机效果文本 */}
+                    {animation?.loading ? (
+                      <span className="loading-dots"></span>
+                    ) : (
+                      <span>{animation?.displayedText || item.policyFeedback}</span>
+                    )}
+                  </div>
                 </div>
-                {/* 政策反馈 */}
-                <div className="text-[10px] font-mono text-[#FF550F] p-1.5 bg-gray-800/60 border border-[#FF550F]/60">
-                  {item.policyFeedback}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -171,7 +285,12 @@ export default function InputInteractionSystem({
             value={currentInput}
             onChange={(e) => setCurrentInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            onFocus={() => setShowSuggestions(true)}
+            onFocus={() => {
+              // 只有在没有刚选择建议时才显示建议列表
+              if (!justSelectedSuggestion.current) {
+                setShowSuggestions(true);
+              }
+            }}
             placeholder="Type your appeals here"
             className="flex-1 bg-white/10 border border-white/20 px-2 py-1 text-[10px] font-mono text-white placeholder-white/40 focus:outline-none focus:bg-white/20 focus:border-white/40"
             maxLength={100}
@@ -190,6 +309,7 @@ export default function InputInteractionSystem({
           Press Enter to submit • Max 100 chars
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
