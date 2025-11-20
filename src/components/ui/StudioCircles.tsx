@@ -22,6 +22,7 @@ interface StudioCirclesProps {
   className?: string;
   allowNewCircles?: boolean; // 新增：是否允许生成新圆形
   initialCircles?: StudioCircle[]; // 新增：初始圆形数据（用于状态恢复）
+  currentPeriodId?: string; // 新增：当前时期ID
 }
 
 export interface StudioCirclesRef {
@@ -36,7 +37,8 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
   commentTags,
   className = '',
   allowNewCircles = true, // 默认允许生成新圆形
-  initialCircles = [] // 默认空数组
+  initialCircles = [], // 默认空数组
+  currentPeriodId = 'period-1' // 默认为第一个时期
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [circles, setCircles] = useState<StudioCircle[]>(initialCircles);
@@ -92,8 +94,17 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
           ? { x: tagsInGrid[0].position.x, y: tagsInGrid[0].position.y }
           : gridCenter;
 
-        // 随机直径 100px-250px
-        const diameter = 100 + Math.random() * 150;
+        // 根据时期调整圆形大小
+        // 1995-2002阶段(period-1): 正常大小 100px-250px
+        // 2002-2006阶段及以后(period-2+): 1/2大小 50px-125px
+        let diameter: number;
+        if (currentPeriodId === 'period-1') {
+          // 1995-2002阶段：正常大小 100px-250px
+          diameter = 100 + Math.random() * 150;
+        } else {
+          // 2002-2006阶段及以后：1/2大小 50px-125px
+          diameter = 50 + Math.random() * 75;
+        }
         const radius = diameter / 2;
 
         const newCircle: StudioCircle = {
@@ -162,9 +173,9 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
 
         // 根据评估结果决定绘制样式
         if (circle.evaluationResult === 'demolish') {
-          // demolish状态：没有轮廓，点阵颜色变为#FF550F
+          // demolish状态：没有轮廓，0%透明度（完全不透明）
           ctx.save();
-          ctx.globalAlpha = 0.5;
+          ctx.globalAlpha = 1; // 0%透明度，完全不透明
           const dotSize = 1.5;
           const spacing = 10;
 
@@ -192,19 +203,19 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
 
           ctx.restore();
         } else if (circle.evaluationResult === 'passed') {
-          // passed状态：30%透明度橙色底 + 边框1px #FF550F色 + 内部#FF550F色斜线填充(100%透明度)
+          // passed状态：30%透明度#FF8126色底 + 边框1px #FF8126色 + 内部#FF8126色斜线填充(100%透明度)
           ctx.save();
 
-          // 绘制30%透明度橙色底色
+          // 绘制30%透明度#FF8126色底色
           ctx.globalAlpha = 0.3;
-          ctx.fillStyle = '#FF550F';
+          ctx.fillStyle = '#FF8126';
           ctx.beginPath();
           ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
           ctx.fill();
 
           // 绘制外轮廓
-          ctx.globalAlpha = 0.6;
-          ctx.strokeStyle = '#FF550F';
+          ctx.globalAlpha = 1.0;
+          ctx.strokeStyle = '#FF8126';
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
@@ -212,7 +223,7 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
 
           // 绘制斜线填充 (100%透明度)
           ctx.globalAlpha = 1.0;
-          ctx.strokeStyle = '#FF550F';
+          ctx.strokeStyle = '#FF8126';
           ctx.lineWidth = 1;
 
           // 创建圆形裁剪区域
@@ -237,17 +248,17 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
 
           ctx.restore();
 
-          // 绘制#FF550F色圆心点
-          ctx.fillStyle = '#FF550F';
+          // 绘制#FF8126色圆心点
+          ctx.fillStyle = '#FF8126';
           ctx.beginPath();
           ctx.arc(circle.centerX, circle.centerY, 2, 0, 2 * Math.PI);
           ctx.fill();
 
           ctx.restore();
         } else {
-          // 默认状态：原始样式（未被评估）
+          // 默认状态：原始样式（未被评估）- 透明度提至100%
           ctx.save();
-          ctx.globalAlpha = 0.6;
+          ctx.globalAlpha = 1.0; // 提至100%透明度
           ctx.strokeStyle = '#F9F0D3';
           ctx.lineWidth = 1;
           ctx.setLineDash([4, 4]);
@@ -258,7 +269,7 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
 
           // 绘制内部斜向点阵
           if (progress > 0.3) {
-            ctx.globalAlpha = 0.5;
+            ctx.globalAlpha = 1.0; // 提至100%透明度
             const dotSize = 1.5;
             const spacing = 10;
 

@@ -6,12 +6,14 @@ interface InputInteractionSystemProps {
   className?: string;
   onInputSubmit?: (input: string) => void; // 输入提交回调 - 现在传递政策反馈文本
   isVisible?: boolean; // 是否显示（仅在2002-2006期间显示）
+  governmentAnimationComplete?: boolean; // 政府动画是否完成
 }
 
 interface HistoryItem {
   userInput: string;
   policyFeedback: string;
   timestamp: number; // 添加时间戳用于控制动画
+  showInSidebar?: boolean; // 是否在侧边栏显示（等待政府动画完成）
 }
 
 // 预设的政策反馈模板
@@ -34,11 +36,13 @@ const SUGGESTED_INPUTS = [
 export default function InputInteractionSystem({
   className = '',
   onInputSubmit,
-  isVisible = false
+  isVisible = false,
+  governmentAnimationComplete = false
 }: InputInteractionSystemProps) {
   const [currentInput, setCurrentInput] = useState('');
   const [inputHistory, setInputHistory] = useState<HistoryItem[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false); // 最小化状态
   const inputRef = useRef<HTMLInputElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
   const justSelectedSuggestion = useRef(false); // 跟踪是否刚选择了建议
@@ -61,10 +65,11 @@ export default function InputInteractionSystem({
       setInputHistory(prev => [...prev, {
         userInput: currentInput.trim(),
         policyFeedback: randomFeedback,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        showInSidebar: true // 立即在侧边栏显示
       }]);
 
-      // 初始化动画状态：先显示加载动画
+      // 初始化动画状态：立即显示加载动画
       setFeedbackAnimations(prev => ({
         ...prev,
         [newIndex]: { loading: true, displayedText: '' }
@@ -114,6 +119,7 @@ export default function InputInteractionSystem({
     const timers: NodeJS.Timeout[] = [];
 
     inputHistory.forEach((item, index) => {
+
       const animation = feedbackAnimations[index];
 
       if (!animation) {
@@ -201,20 +207,29 @@ export default function InputInteractionSystem({
       `}} />
 
       <div
-        className={`bg-black/80 border border-white/30 ${className}`}
+        className={`bg-black/80 border border-white/30 ${className} transition-all duration-300 overflow-hidden`}
         style={{
           width: '300px',
-          height: '250px'
+          height: isMinimized ? '90px' : '250px' // 增加最小化高度以容纳输入框
         }}
       >
       {/* 标题 */}
-      <div className="p-3 border-b border-white/20">
+      <div className="p-3 border-b border-white/20 flex justify-between items-center">
         <h4 className="text-[10px] font-mono text-white/70 uppercase tracking-wider">
           Government Feedback
         </h4>
+        {/* 最小化按钮 */}
+        <button
+          onClick={() => setIsMinimized(!isMinimized)}
+          className="text-white/50 hover:text-white/80 transition-colors text-[12px] font-mono"
+          title={isMinimized ? "Expand" : "Minimize"}
+        >
+          {isMinimized ? '━' : '━'}
+        </button>
       </div>
 
-      {/* 输入历史记录区域 */}
+      {/* 输入历史记录区域 - 仅在未最小化时显示 */}
+      {!isMinimized && (
       <div
         ref={historyRef}
         className="history-scroll px-3 py-2 overflow-y-auto"
@@ -228,14 +243,20 @@ export default function InputInteractionSystem({
           <div className="space-y-2">
             {inputHistory.map((item, index) => {
               const animation = feedbackAnimations[index];
+
               return (
                 <div key={index} className="space-y-1">
                   {/* 用户输入 */}
                   <div className="text-[10px] font-mono text-white/70 p-1 bg-white/10 border border-white/20">
                     {item.userInput}
                   </div>
-                  {/* 政策反馈 - 新设计：无背景和边框，有图标，缩进，动画 */}
-                  <div className="text-[10px] font-mono text-[#FF550F] pl-6 relative">
+                  {/* 政策反馈 - 添加颜色渐变动画 */}
+                  <div
+                    className="text-[10px] font-mono pl-6 relative transition-colors duration-2000"
+                    style={{
+                      color: animation?.loading ? '#888888' : '#FF550F' // 加载时灰色，完成后橙色
+                    }}
+                  >
                     {/* 回车图标 */}
                     <span className="absolute left-0 top-0">↵</span>
                     {/* 加载动画或打字机效果文本 */}
@@ -251,6 +272,7 @@ export default function InputInteractionSystem({
           </div>
         )}
       </div>
+      )}
 
       {/* 输入框区域 */}
       <div className="p-3 border-t border-white/20 relative">
@@ -305,9 +327,9 @@ export default function InputInteractionSystem({
         </form>
 
         {/* 输入提示 */}
-        <div className="mt-1 text-[8px] font-mono text-white/40">
+        {/* <div className="mt-1 text-[8px] font-mono text-white/40">
           Press Enter to submit • Max 100 chars
-        </div>
+        </div> */}
       </div>
       </div>
     </>

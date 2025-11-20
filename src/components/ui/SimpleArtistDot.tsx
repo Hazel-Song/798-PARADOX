@@ -146,57 +146,71 @@ export default function SimpleArtistDot({ character, className = '' }: SimpleArt
           zIndex: 30
         }}
       >
-        {/* 最外层大光晕 */}
+        {/* 白色虚线圆环轮廓 */}
+        <div
+          className="absolute rounded-full"
+          style={{
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '60px',
+            height: '60px',
+            border: '1px dashed white',
+            opacity: 0.8
+          }}
+        />
+
+        {/* 最外层大光晕 - 2倍大小 */}
         <div
           className="absolute rounded-full opacity-20"
           style={{
             left: '50%',
             top: '50%',
             transform: 'translate(-50%, -50%)',
-            width: '40px',
-            height: '40px',
+            width: '80px',
+            height: '80px',
             background: 'radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%)',
             filter: 'blur(8px)'
           }}
         />
 
-        {/* 中层光晕 */}
+        {/* 中层光晕 - 2倍大小 */}
         <div
           className="absolute rounded-full opacity-40"
           style={{
             left: '50%',
             top: '50%',
             transform: 'translate(-50%, -50%)',
-            width: '24px',
-            height: '24px',
+            width: '48px',
+            height: '48px',
             background: 'radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 70%)',
             filter: 'blur(4px)'
           }}
         />
 
-        {/* 内层强光晕 */}
+        {/* 内层强光晕 - 2倍大小 */}
         <div
           className="absolute rounded-full opacity-60"
           style={{
             left: '50%',
             top: '50%',
             transform: 'translate(-50%, -50%)',
-            width: '12px',
-            height: '12px',
+            width: '24px',
+            height: '24px',
             background: 'radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.3) 70%)',
             filter: 'blur(2px)'
           }}
         />
 
-        {/* 核心光点 */}
+        {/* 核心光点 - 2倍大小 */}
         <div
           className="absolute rounded-full bg-white"
           style={{
             left: '50%',
             top: '50%',
             transform: 'translate(-50%, -50%)',
-            width: '6px',
-            height: '6px',
+            width: '12px',
+            height: '12px',
             boxShadow: '0 0 8px 2px rgba(255,255,255,0.9), 0 0 4px 1px rgba(255,255,255,1)'
           }}
         />

@@ -102,6 +102,12 @@ const MapLayout = () => {
     timeRemaining: 20
   });
 
+  // 用 ref 保存 debugData 以避免闭包问题
+  const debugDataRef = useRef(debugData);
+  useEffect(() => {
+    debugDataRef.current = debugData;
+  }, [debugData]);
+
   // 调试面板显示状态
   const [isDebugVisible, setIsDebugVisible] = useState(false);
 
@@ -111,6 +117,9 @@ const MapLayout = () => {
   // 评论标签状态
   const [commentTags, setCommentTags] = useState<CommentTag[]>([]);
 
+  // 被demolish的抗议标签位置记录（用于粉色动画）
+  const [demolishedProtestPositions, setDemolishedProtestPositions] = useState<Record<string, { x: number; y: number }>>({});
+
   // 工作室区域状态
   const [studioAreas, setStudioAreas] = useState<Set<string>>(new Set());
 
@@ -119,6 +128,7 @@ const MapLayout = () => {
 
   // 政府输入文本状态
   const [governmentInputs, setGovernmentInputs] = useState<string[]>([]);
+  const [governmentAnimationComplete, setGovernmentAnimationComplete] = useState(false);
 
   // 政府角色激活状态
   const [isGovernmentActive, setIsGovernmentActive] = useState(false);
@@ -327,6 +337,13 @@ const MapLayout = () => {
   const currentPeriod = timelineData.periods.find(p => p.id === currentPeriodId);
   const currentRoles = timelineData.rolesByPeriod[currentPeriodId] || {};
 
+  // 用 ref 保存 currentPeriod 以避免闭包问题
+  const currentPeriodRef = useRef(currentPeriod);
+  useEffect(() => {
+    currentPeriodRef.current = currentPeriod;
+    console.log('🔄 currentPeriod updated in ref:', currentPeriod);
+  }, [currentPeriod]);
+
   const handleCharacterUpdate = (character: Character) => {
     if (character) {
       console.log('👤 Character update received:', character);
@@ -482,7 +499,7 @@ const MapLayout = () => {
     return () => clearInterval(cleanupInterval);
   }, []);
 
-  const handleAIEvaluation = (evaluation: { sight: string; thought: string; confidence: number }) => {
+  const handleAIEvaluation = React.useCallback((evaluation: { sight: string; thought: string; confidence: number }) => {
     console.log('🎯 handleAIEvaluation CALLED!!! This should replace pending tag!!!');
 
     try {
@@ -500,6 +517,45 @@ const MapLayout = () => {
         const positionKeywords = gridSystemRef.current!.getKeywordsAtPosition(gridPos);
 
         console.log('🏷️ Updating pending tag to completed evaluation at position:', characterPosition, 'with keywords:', positionKeywords);
+
+        // 检查是否在passed区域内（仅在2002-2006期间，即period-2）
+        console.log('🔍 Checking passed zone conditions:');
+        console.log('  - currentPeriodRef.current:', currentPeriodRef.current);
+        console.log('  - currentPeriodRef.current?.id:', currentPeriodRef.current?.id);
+        console.log('  - Is period-2?:', currentPeriodRef.current?.id === 'period-2');
+        console.log('  - studioCirclesRef.current exists?:', !!studioCirclesRef.current);
+
+        const isInPassedZone = currentPeriodRef.current?.id === 'period-2' && studioCirclesRef.current
+          ? studioCirclesRef.current.getCircles().some(circle => {
+              console.log('🔍 Checking circle:', {
+                id: circle.id,
+                evaluationResult: circle.evaluationResult,
+                centerX: circle.centerX,
+                centerY: circle.centerY,
+                radius: circle.radius
+              });
+
+              if (circle.evaluationResult !== 'passed') return false;
+
+              const distance = Math.sqrt(
+                Math.pow(characterPosition.x - circle.centerX, 2) +
+                Math.pow(characterPosition.y - circle.centerY, 2)
+              );
+
+              const isInside = distance < circle.radius;
+              console.log('📍 Distance check:', {
+                characterPos: characterPosition,
+                distance,
+                radius: circle.radius,
+                isInside
+              });
+
+              return isInside;
+            })
+          : false;
+
+        console.log(`🎯 Tag creation - in passed zone: ${isInPassedZone}, period: ${currentPeriodRef.current?.id} (${currentPeriodRef.current?.years}), circlesCount: ${studioCirclesRef.current?.getCircles().length}`);
+
         setCommentTags(prev => {
           // 查找最近的pending标签并替换它（按时间倒序查找最新的）
           let pendingIndex = -1;
@@ -523,11 +579,40 @@ const MapLayout = () => {
                 sight: evaluation.sight,
                 thought: evaluation.thought
               },
-              keywords: positionKeywords.length > 0 ? positionKeywords : debugData.lastKeywords,
+              keywords: positionKeywords.length > 0 ? positionKeywords : debugDataRef.current.lastKeywords,
               timestamp: Date.now(),
-              position: characterPosition // 更新到实际位置
+              position: characterPosition, // 更新到实际位置
+              isProtestTag: isInPassedZone // 如果在passed区域内，标记为抗议标签
             };
-            console.log('✅ Replaced pending tag with completed evaluation:', newTags[pendingIndex]);
+            console.log('✅ Replaced pending tag with completed evaluation:', {
+              ...newTags[pendingIndex],
+              isProtestTag_value: isInPassedZone,
+              isProtestTag_property: newTags[pendingIndex].isProtestTag
+            });
+            if (isInPassedZone) {
+              console.log('🚩🚩🚩 Created PROTEST TAG in passed zone! isProtestTag =', newTags[pendingIndex].isProtestTag);
+
+              // 触发粉色涟漪动画：记录抗议标签创建位置
+              const protestTag = newTags[pendingIndex];
+              console.log('🎯 ABOUT TO TRIGGER PINK ANIMATION - Protest tag details:', {
+                id: protestTag.id,
+                position: protestTag.position,
+                isProtestTag: protestTag.isProtestTag
+              });
+
+              setDemolishedProtestPositions(prev => {
+                const newPositions = {
+                  ...prev,
+                  [protestTag.id]: {
+                    x: protestTag.position.x,
+                    y: protestTag.position.y
+                  }
+                };
+                console.log('🎯🎯🎯 PINK ANIMATION STATE UPDATED:', newPositions);
+                return newPositions;
+              });
+              console.log('🎯 Protest tag created - triggering pink ripple animation at:', protestTag.position, 'for tag:', protestTag.id);
+            }
 
             // 检查区域转换
             setTimeout(() => checkAreaTransformation(newTags), 100);
@@ -550,10 +635,35 @@ const MapLayout = () => {
                 sight: evaluation.sight,
                 thought: evaluation.thought
               },
-              keywords: positionKeywords.length > 0 ? positionKeywords : debugData.lastKeywords,
+              keywords: positionKeywords.length > 0 ? positionKeywords : debugDataRef.current.lastKeywords,
               timestamp: Date.now(),
-              characterId: 'ARTIST'
+              characterId: 'ARTIST',
+              isProtestTag: isInPassedZone // 如果在passed区域内，标记为抗议标签
             };
+
+            if (isInPassedZone) {
+              console.log('🚩 Created PROTEST TAG in passed zone (fallback)!');
+
+              // 触发粉色涟漪动画：记录抗议标签创建位置
+              console.log('🎯 FALLBACK - ABOUT TO TRIGGER PINK ANIMATION - Protest tag details:', {
+                id: newCommentTag.id,
+                position: newCommentTag.position,
+                isProtestTag: newCommentTag.isProtestTag
+              });
+
+              setDemolishedProtestPositions(prev => {
+                const newPositions = {
+                  ...prev,
+                  [newCommentTag.id]: {
+                    x: newCommentTag.position.x,
+                    y: newCommentTag.position.y
+                  }
+                };
+                console.log('🎯🎯🎯 FALLBACK - PINK ANIMATION STATE UPDATED:', newPositions);
+                return newPositions;
+              });
+              console.log('🎯 Protest tag created (fallback) - triggering pink ripple animation at:', newCommentTag.position, 'for tag:', newCommentTag.id);
+            }
 
             const newTags = [...cleanedTags, newCommentTag];
             setTimeout(() => checkAreaTransformation(newTags), 100);
@@ -571,7 +681,7 @@ const MapLayout = () => {
     } catch (globalError) {
       console.error('🚨 Global error in handleAIEvaluation:', globalError);
     }
-  };
+  }, [currentPeriod, artists]);
 
   // 政府工作室评估处理器
   const handleStudioEvaluation = (circleId: string, result: 'demolish' | 'passed') => {
@@ -777,6 +887,7 @@ const MapLayout = () => {
     console.log('🧹 Clearing current period data');
     setCommentTags([]);
     setStudioAreas(new Set());
+    setDemolishedProtestPositions({}); // 清空demolish记录
     if (studioCirclesRef.current) {
       studioCirclesRef.current.setCircles([]);
     }
@@ -953,7 +1064,7 @@ const MapLayout = () => {
           {/* 地图容器 - 占据5/6高度，支持响应式，从左上角开始布局 */}
           <div
             ref={mapContainerRef}
-            className="bg-black/50 h-5/6 overflow-hidden relative"
+            className="bg-black/50 h-4/5 overflow-hidden relative"
           >
             {/* 地图内容区域 - 保持比例的容器，从左上角开始 */}
             <div
@@ -999,13 +1110,20 @@ const MapLayout = () => {
                 }}
               />
 
-              {/* 输入交互系统 - 在地图区域左下角 */}
+              {/* 输入交互系统 - 在地图区域左下角内部，确保不被遮挡 */}
               {(currentPeriodId === 'period-2' || currentPeriodId === 'period-3') && (
-                <div className="absolute bottom-4 left-4 z-80">
+                <div className="absolute bottom-3 left-3 z-[9999]">
                   <InputInteractionSystem
                     onInputSubmit={handleInputSubmit}
                     isVisible={true}
+                    governmentAnimationComplete={governmentAnimationComplete}
                   />
+
+                  {/* 提示文本 - 放在政府反馈下方 */}
+                  <div className="mt-1 text-[10px] font-mono text-[#FF550F] flex items-center">
+                    <span className="mr-1">↑</span>
+                    Try to voice your suggestions as much as possible, this will influence government rules to some extent...
+                  </div>
                 </div>
               )}
 
@@ -1030,6 +1148,7 @@ const MapLayout = () => {
                   commentTags={commentTags}
                   className="absolute inset-0 z-25"
                   allowNewCircles={currentPeriodId === 'period-1' || currentPeriodId === 'period-2'} // 1995-2002和2002-2006都允许生成新圆形
+                  currentPeriodId={currentPeriodId} // 传递当前时期ID用于调整圆形大小
                 />
               )}
 
@@ -1065,6 +1184,7 @@ const MapLayout = () => {
                   currentPeriod={currentPeriod?.years || ''}
                   isActive={isGovernmentActive}
                   governmentInputs={governmentInputs}
+                  onAnimationComplete={() => setGovernmentAnimationComplete(true)}
                 />
               )}
 
@@ -1098,27 +1218,32 @@ const MapLayout = () => {
               })}
 
               {/* 评论标签 */}
-              {checkedItems.artist && (
-                <CommentTags
-                  tags={commentTags}
-                  className="absolute inset-0 z-70"
-                />
-              )}
+              {checkedItems.artist && (() => {
+                // 获取所有passed的工作室圆形作为passed区域
+                const passedZones = (studioCirclesRef.current?.getCircles() || [])
+                  .filter(circle => circle.evaluationResult === 'passed')
+                  .map(circle => ({
+                    centerX: circle.centerX,
+                    centerY: circle.centerY,
+                    radius: circle.radius
+                  }));
+
+                return (
+                  <CommentTags
+                    tags={commentTags}
+                    currentPeriod={currentPeriod?.years || ''}
+                    passedZones={passedZones}
+                    demolishedProtestPositions={demolishedProtestPositions}
+                    className="absolute inset-0 z-70"
+                  />
+                );
+              })()}
             </div>
           </div>
 
-          {/* 提示文本 - 地图容器外部，绝对定位不占据布局空间 */}
-          {(currentPeriodId === 'period-2' || currentPeriodId === 'period-3') && (
-            <div className="absolute left-4 pl-4 z-80" style={{ top: 'calc(83.333% + 4px)' }}>
-              <div className="text-[10px] font-mono text-[#FF550F] flex items-center">
-                <span className="mr-1">↑</span>
-                Try to voice your suggestions as much as possible, this will influence government rules to some extent...
-              </div>
-            </div>
-          )}
 
-          {/* 时间线 - 在地图下方，占据剩余1/6高度 */}
-          <div className="h-1/6 flex items-center">
+          {/* 时间线 - 在地图下方，占据剩余1/5高度 */}
+          <div className="h-1/5 flex items-center">
             <Timeline
               periods={timelineData.periods}
               currentPeriod={currentPeriodId}

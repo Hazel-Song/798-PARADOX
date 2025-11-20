@@ -13,6 +13,7 @@ interface WanderingGovernmentProps {
   currentPeriod: string;
   isActive?: boolean; // 是否激活政府角色
   governmentInputs?: string[]; // 政府输入文本列表
+  onAnimationComplete?: () => void; // 动画完成回调
 }
 
 export interface WanderingGovernmentRef {
@@ -45,7 +46,8 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
   onPublicOpinionHeatUpdate,
   currentPeriod,
   isActive = false,
-  governmentInputs = []
+  governmentInputs = [],
+  onAnimationComplete
 }, ref) => {
   const [position, setPosition] = useState({ x: 100, y: 100 }); // 初始位置
   const [currentEvaluation, setCurrentEvaluation] = useState<GovernmentEvaluation | null>(null);
@@ -281,6 +283,11 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
             result
           } : null);
 
+          // 通知动画完成
+          if (onAnimationComplete) {
+            onAnimationComplete();
+          }
+
           // 切换下一个结果
           setNextResult(result === 'demolish' ? 'passed' : 'demolish');
 
@@ -343,30 +350,37 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // 绘制政府轨迹（橙色）
+      // 绘制政府轨迹（橙色）- 添加渐变消失效果
       if (trajectory.length > 1) {
         const now = Date.now();
-        ctx.save();
-        ctx.strokeStyle = '#FF550F';
-        ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.7;
 
-        ctx.beginPath();
-        trajectory.forEach((point, index) => {
-          // 根据时间计算透明度 (越新越不透明)
-          const age = now - point.timestamp;
-          const alpha = Math.max(0.1, 1 - age / 30000); // 30秒内从1.0淡化到0.1
+        // 为每段轨迹绘制单独的线条以实现渐变效果
+        for (let i = 1; i < trajectory.length; i++) {
+          const prevPoint = trajectory[i - 1];
+          const currentPoint = trajectory[i];
 
-          if (index === 0) {
-            ctx.moveTo(point.x, point.y);
-          } else {
-            ctx.globalAlpha = alpha * 0.7;
-            ctx.lineTo(point.x, point.y);
-          }
-        });
+          // 计算当前点的年龄和透明度
+          const age = now - currentPoint.timestamp;
+          const maxAge = 30000; // 30秒完全消失
+          let alpha = Math.max(0.1, 1 - age / maxAge);
 
-        ctx.stroke();
-        ctx.restore();
+          // 根据轨迹位置添加额外的渐变（越靠前的点越透明）
+          const positionFade = i / trajectory.length; // 0到1
+          alpha = alpha * (0.3 + 0.7 * (1 - positionFade)); // 前面的点透明度更低
+
+          ctx.save();
+          ctx.strokeStyle = `rgba(255, 85, 15, ${alpha})`;
+          ctx.lineWidth = 2;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+
+          ctx.beginPath();
+          ctx.moveTo(prevPoint.x, prevPoint.y);
+          ctx.lineTo(currentPoint.x, currentPoint.y);
+          ctx.stroke();
+
+          ctx.restore();
+        }
       }
 
       // 绘制扩展圆动画 - 仅在评估过程中显示
@@ -399,11 +413,11 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
       }
 
       overlayCircles.forEach(circle => {
-        // 绘制覆盖圆形 - #FF550F色，1.5px外轮廓，无填充
+        // 绘制覆盖圆形 - #FF8126色，1.5px外轮廓，无填充
         ctx.save();
-        ctx.strokeStyle = '#FF550F';
+        ctx.strokeStyle = '#FF8126';
         ctx.lineWidth = 1.5;
-        ctx.globalAlpha = 0.8;
+        ctx.globalAlpha = 1.0; // 提至100%透明度
 
         ctx.beginPath();
         ctx.arc(circle.centerX, circle.centerY, circle.radius, 0, 2 * Math.PI);
@@ -449,12 +463,13 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
           }}
         >
           <div className="relative">
-            {/* #FF550F色正三角形 - 2倍艺术家大小 */}
+            {/* #FF550F色正棱形 - 正方形旋转45度 */}
             <div
-              className="w-0 h-0 border-l-[6px] border-r-[6px] border-b-[10px] border-l-transparent border-r-transparent"
+              className="w-[10px] h-[10px]"
               style={{
-                borderBottomColor: '#FF550F',
-                filter: 'drop-shadow(0 0 3px rgba(255, 85, 15, 0.6))'
+                backgroundColor: '#FF550F',
+                filter: 'drop-shadow(0 0 3px rgba(255, 85, 15, 0.6))',
+                transform: 'rotate(45deg)'
               }}
             />
 
@@ -467,8 +482,6 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
                   color: 'white',
                   backdropFilter: 'blur(4px)',
                   minHeight: 'auto',
-                  minWidth: '80px',
-                  maxWidth: '120px',
                   left: '0',
                   bottom: '15px',
                   transform: 'translateX(-50%)'
@@ -499,14 +512,12 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
             {/* 评估结果评论 */}
             {currentEvaluation?.status === 'completed' && currentEvaluation.result && (
               <div
-                className="absolute bg-white/60 px-2 py-1 text-[7px] leading-tight text-gray-800 whitespace-normal pointer-events-auto"
+                className="absolute bg-white/60 px-2 py-1 text-[7px] leading-tight text-gray-800 whitespace-nowrap pointer-events-auto"
                 style={{
                   backgroundColor: '#FF550F',
                   color: 'white',
                   backdropFilter: 'blur(4px)',
                   minHeight: 'auto',
-                  minWidth: '80px',
-                  maxWidth: '120px',
                   left: '0',
                   bottom: '15px',
                   transform: 'translateX(-50%)'
@@ -543,14 +554,12 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
           }}
         >
           <div
-            className="absolute bg-white/60 px-2 py-1 text-[7px] leading-tight text-gray-800 whitespace-normal pointer-events-auto"
+            className="absolute bg-white/60 px-2 py-1 text-[7px] leading-tight text-gray-800 whitespace-nowrap pointer-events-auto"
             style={{
               backgroundColor: '#FF550F',
               color: 'white',
               backdropFilter: 'blur(4px)',
               minHeight: 'auto',
-              minWidth: '80px',
-              maxWidth: '120px',
               left: '0',
               bottom: '15px',
               transform: 'translateX(-50%)'

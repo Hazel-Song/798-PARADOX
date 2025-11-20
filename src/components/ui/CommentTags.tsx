@@ -2,6 +2,16 @@
 
 import { useState, useEffect } from 'react';
 
+interface Particle {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  angle: number;
+  speed: number;
+}
+
 export interface CommentTag {
   id: string;
   position: { x: number; y: number };
@@ -13,15 +23,102 @@ export interface CommentTag {
   timestamp: number;
   characterId: string;
   evaluationResult?: 'demolish' | 'passed'; // 新增：政府评估结果
+  isProtestTag?: boolean; // 新增：标记是否为抗议标签（在passed区域内创建的）
+}
+
+interface PassedZone {
+  centerX: number;
+  centerY: number;
+  radius: number;
 }
 
 interface CommentTagsProps {
   tags: CommentTag[];
+  currentPeriod?: string; // 当前时期
+  passedZones?: PassedZone[]; // passed圆形区域列表
+  demolishedProtestPositions?: Record<string, { x: number; y: number }>; // 被demolish的抗议标签位置
 }
 
-export default function CommentTags({ tags }: CommentTagsProps) {
+// 抗议文本预设
+const PROTEST_TEXTS = [
+  "We demand the right to create freely without fear",
+  "Art is not a crime, demolition is violence",
+  "Our studios are our voices, silence us not",
+  "Culture cannot be bulldozed, memory cannot be erased",
+  "Preservation over profit, art over authority"
+];
+
+export default function CommentTags({
+  tags,
+  currentPeriod = '',
+  passedZones = [],
+  demolishedProtestPositions = {}
+}: CommentTagsProps) {
   const [visibleTags, setVisibleTags] = useState<CommentTag[]>([]);
   const [hiddenTags, setHiddenTags] = useState<Set<string>>(new Set());
+
+  // 为每个抗议标签分配固定的抗议文本索引
+  const [protestTextIndexes, setProtestTextIndexes] = useState<Record<string, number>>({});
+
+  // 浮动粒子动画状态 - 简化版本，使用CSS动画避免JS循环
+  const [protestTagParticles, setProtestTagParticles] = useState<Record<string, Particle[]>>({});
+
+  // 使用从父组件传入的demolishedProtestPositions替代原来的hiddenProtestPositions
+
+  // 追踪已经触发过粉色动画的标签，避免重复触发
+  const [triggeredAnimations, setTriggeredAnimations] = useState<Set<string>>(new Set());
+
+  // 内部管理的粉色动画位置状态（包括从父组件传来的 + 本地检测的）
+  const [localPinkPositions, setLocalPinkPositions] = useState<Record<string, { x: number; y: number }>>({});
+
+  // 合并父组件传来的位置和本地检测的位置
+  const allPinkPositions = { ...demolishedProtestPositions, ...localPinkPositions };
+
+  // 监控新的抗议标签（真正的 isProtestTag: true），触发粉色动画
+  useEffect(() => {
+    tags.forEach(tag => {
+      // 检查是否是真正的抗议标签
+      const isRealProtestTag = tag.isProtestTag === true;
+
+      if (isRealProtestTag && !triggeredAnimations.has(tag.id) && !localPinkPositions[tag.id]) {
+        console.log('🎯 抗议标签被创建 - 触发粉色涟漪动画:', tag.id, '位置:', tag.position);
+
+        // 记录这个标签已经触发过动画
+        setTriggeredAnimations(prev => new Set([...prev, tag.id]));
+
+        // 添加到本地粉色动画位置
+        setLocalPinkPositions(prev => ({
+          ...prev,
+          [tag.id]: {
+            x: tag.position.x,
+            y: tag.position.y
+          }
+        }));
+      }
+    });
+  }, [tags, triggeredAnimations, localPinkPositions]);
+
+  // 隐藏标签的辅助函数
+  const hideTag = (tagId: string, tag?: CommentTag) => {
+    setHiddenTags(prev => new Set([...prev, tagId]));
+    // 注意：抗议标签的demolish记录现在由MapLayout组件处理
+  };
+
+  // 检查点是否在passed圆形区域内
+  const isPointInPassedZone = (x: number, y: number): boolean => {
+    // 只在2002-2006期间检查
+    if (currentPeriod !== '2002-2006') return false;
+
+    for (const zone of passedZones) {
+      const distance = Math.sqrt(
+        Math.pow(x - zone.centerX, 2) + Math.pow(y - zone.centerY, 2)
+      );
+      if (distance < zone.radius) {
+        return true;
+      }
+    }
+    return false;
+  };
 
   useEffect(() => {
     // 过滤掉临时标签，只显示真正的评论标签
@@ -33,13 +130,61 @@ export default function CommentTags({ tags }: CommentTagsProps) {
     if (realTags.length !== visibleTags.length) {
       console.log('CommentTags: Tag count changed from', visibleTags.length, 'to', realTags.length);
       console.log('CommentTags: Filtered out temporary tags, showing real tags:', realTags);
+
+      // 检查是否有抗议标签
+      const protestTags = realTags.filter(t => t.isProtestTag);
+      if (protestTags.length > 0) {
+        console.log('🚩 Found protest tags:', protestTags.length, protestTags);
+      }
+
+      // 为新的抗议标签初始化粒子
+      protestTags.forEach(tag => {
+        if (!protestTagParticles[tag.id]) {
+          const particleCount = Math.floor(Math.random() * 4) + 2; // 2-5个随机粒子
+          const newParticles: Particle[] = [];
+
+          for (let i = 0; i < particleCount; i++) {
+            const angle = (Math.PI * 2 * i) / particleCount + Math.random() * 0.5;
+            const distance = 25 + Math.random() * 15; // 25-40px 距离
+            newParticles.push({
+              id: `${tag.id}-particle-${i}`,
+              x: Math.cos(angle) * distance,
+              y: Math.sin(angle) * distance,
+              vx: (Math.random() - 0.5) * 0.5, // 随机速度
+              vy: (Math.random() - 0.5) * 0.5,
+              angle: angle,
+              speed: 0.3 + Math.random() * 0.4 // 0.3-0.7 速度
+            });
+          }
+
+          setProtestTagParticles(prev => ({
+            ...prev,
+            [tag.id]: newParticles
+          }));
+        }
+      });
     }
     setVisibleTags(realTags);
-  }, [tags]);
+  }, [tags]); // 移除 particles 依赖避免无限循环
+
+  // 为抗议标签初始化文本索引
+  useEffect(() => {
+    tags.forEach(tag => {
+      if (tag.isProtestTag && !protestTextIndexes[tag.id]) {
+        setProtestTextIndexes(prev => ({
+          ...prev,
+          [tag.id]: Math.floor(Math.random() * PROTEST_TEXTS.length)
+        }));
+      }
+    });
+  }, [tags, protestTextIndexes]);
 
   // 监控新添加的标签，设置2个标签后消失的逻辑
   useEffect(() => {
     visibleTags.forEach(tag => {
+      // 抗议标签永久显示，跳过消失逻辑
+      if (tag.isProtestTag) return;
+
       // 如果是新标签且不在隐藏列表中，设置消失定时器
       if (!hiddenTags.has(tag.id) && !tag.id.startsWith('pending-evaluation-')) {
         // 计算标签创建后经过了多长时间
@@ -60,12 +205,12 @@ export default function CommentTags({ tags }: CommentTagsProps) {
 
         if (tagAge >= totalDisplayTime) {
           // 立即隐藏
-          setHiddenTags(prev => new Set([...prev, tag.id]));
+          hideTag(tag.id, tag);
         } else {
           // 设置定时器
           const remainingTime = totalDisplayTime - tagAge;
           const timer = setTimeout(() => {
-            setHiddenTags(prev => new Set([...prev, tag.id]));
+            hideTag(tag.id, tag);
           }, remainingTime);
 
           return () => clearTimeout(timer);
@@ -74,92 +219,279 @@ export default function CommentTags({ tags }: CommentTagsProps) {
     });
   }, [visibleTags, visibleTags.length]);
 
+  // 当时间阶段切换时，清理本地动画状态
+  useEffect(() => {
+    setLocalPinkPositions({});
+    setTriggeredAnimations(new Set());
+  }, [currentPeriod]);
+
   return (
-    <div className="absolute inset-0 pointer-events-none z-50">
-      {visibleTags.map((tag) => {
-        const isHidden = hiddenTags.has(tag.id);
+    <>
+      {/* CSS动画样式 */}
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes rippleColorChange {
+          0% {
+            box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.8);
+          }
+          50% {
+            box-shadow: 0 0 0 8px rgba(0, 0, 0, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 8px rgba(0, 0, 0, 0);
+          }
+        }
 
-        return (
-          <div
-            key={tag.id}
-            className="absolute pointer-events-none"
-            style={{
-              left: `${tag.position.x}px`,
-              top: `${tag.position.y}px`,
-            }}
-          >
-            {/* 标签指示点 - 简洁发光效果 */}
-            <div className="relative group">
-              {/* 柔和外层光晕 */}
-              <div
-                className={`absolute w-8 h-8 rounded-full blur-sm opacity-30 ${
-                  tag.evaluationResult === 'passed' ? 'bg-orange-500' : 'bg-yellow-400'
-                }`}
-                style={{
-                  left: '0',
-                  top: '0',
-                  transform: 'translate(-50%, -50%)'
-                }}
-              />
+        .color-change-animation {
+          animation: rippleColorChange 0.6s ease-out;
+        }
+      `}} />
 
-              {/* 核心亮点 */}
-              <div
-                className={`absolute w-2 h-2 rounded-full shadow-lg ${
-                  tag.evaluationResult === 'passed'
-                    ? 'bg-orange-500 shadow-orange-500/80'
-                    : 'bg-yellow-400 shadow-yellow-400/80'
-                }`}
-                style={{
-                  left: '0',
-                  top: '0',
-                  transform: 'translate(-50%, -50%)'
-                }}
-              />
+      <div className="absolute inset-0 pointer-events-none">
+        {visibleTags.map((tag) => {
+          const isHidden = hiddenTags.has(tag.id);
+          const isProtestTag = tag.isProtestTag === true;
+          const inPassedZone = !isProtestTag && isPointInPassedZone(tag.position.x, tag.position.y);
+
+          // 调试日志
+          if (isProtestTag) {
+            console.log('🎨 Rendering PROTEST TAG:', {
+              id: tag.id,
+              isProtestTag,
+              content: tag.content.thought
+            });
+          }
+
+          return (
+            <div
+              key={tag.id}
+              className="absolute pointer-events-none"
+              style={{
+                left: `${tag.position.x}px`,
+                top: `${tag.position.y}px`,
+              }}
+            >
+              {/* 标签指示点 - 三种样式 */}
+              <div className="relative group">
+                {/* 柔和外层光晕 */}
+                <div
+                  className={`absolute rounded-full blur-sm opacity-30 ${
+                    isProtestTag
+                      ? 'bg-white' // 抗议标签保持白色
+                      : inPassedZone
+                        ? 'bg-[#FF550F]' // passed区域保持橙色
+                        : 'bg-white' // 其他所有情况都改为白色
+                  }`}
+                  style={{
+                    width: isProtestTag ? '32px' : '32px',
+                    height: isProtestTag ? '32px' : '32px',
+                    left: '0',
+                    top: '0',
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                />
+
+                {/* 核心亮点 */}
+                <div
+                  className={`absolute rounded-full shadow-lg ${
+                    isProtestTag
+                      ? 'bg-pink-500' // 抗议标签使用粉色背景
+                      : inPassedZone
+                        ? 'bg-black shadow-[#FF550F]/80 color-change-animation' // passed区域保持黑色
+                        : 'bg-[#FFF5DB] shadow-[#FFF5DB]/80' // 其他所有情况都改为#FFF5DB
+                  }`}
+                  style={{
+                    width: isProtestTag ? '22px' : '8px',
+                    height: isProtestTag ? '22px' : '8px',
+                    left: '0',
+                    top: '0',
+                    transform: 'translate(-50%, -50%)',
+                    border: isProtestTag ? '5px solid #ffffff' : undefined, // 5px 白色边框
+                    zIndex: isProtestTag ? 60 : (inPassedZone ? 30 : undefined), // 抗议标签降低z-index，黑色圆点提高z-index以覆盖passed圆填充
+                    boxShadow: isProtestTag
+                      ? '0 0 30px 6px rgba(255, 255, 255, 0.8), 0 0 20px 4px rgba(255, 255, 255, 0.9), 0 0 12px 2px rgba(255, 255, 255, 1), 0 0 10px 3px rgba(236, 72, 153, 0.9), 0 0 6px 2px rgba(236, 72, 153, 1)' // 更强烈的白色外光晕 + 粉色内光晕混合
+                      : inPassedZone
+                        ? '0 0 10px 2px rgba(255, 85, 15, 0.8), 0 0 6px 1px rgba(255, 85, 15, 1)' // passed区域保持橙色阴影
+                        : '0 0 10px 2px rgba(255, 245, 219, 0.6), 0 0 6px 1px rgba(255, 245, 219, 0.8)' // 其他情况使用#FFF5DB阴影
+                  }}
+                >
+                </div>
+
+                {/* 抗议标签的红色内圆 - E70014颜色 */}
+                {isProtestTag && (
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      width: '3px', // 小的红色内圆，改为3px
+                      height: '3px',
+                      left: '0',
+                      top: '0',
+                      transform: 'translate(-50%, -50%)',
+                      backgroundColor: '#E70014',
+                      zIndex: 65 // 在粉色圆之上
+                    }}
+                  />
+                )}
+
+                {/* 抗议标签的外轮廓圆圈 - 1px外圆 - 扩大一倍 */}
+                {isProtestTag && (
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      width: '56px', // 扩大一倍：从28px到56px
+                      height: '56px',
+                      left: '0',
+                      top: '0',
+                      transform: 'translate(-50%, -50%)',
+                      border: '1px solid rgba(255, 255, 255, 0.8)', // 1px白色外轮廓
+                      backgroundColor: 'transparent',
+                      zIndex: 55 // 在主圆之下，在passed圆之上
+                    }}
+                  />
+                )}
+
+                {/* 静态浮动粒子 - 仅对抗议标签显示 */}
+                {isProtestTag && protestTagParticles[tag.id] && protestTagParticles[tag.id].map((particle: Particle) => (
+                  <div
+                    key={particle.id}
+                    className="absolute rounded-full"
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      left: `${particle.x}px`,
+                      top: `${particle.y}px`,
+                      transform: 'translate(-50%, -50%)',
+                      opacity: 0.8,
+                      backgroundColor: '#F328A5', // 粒子颜色改为#F328A5
+                      boxShadow: '0 0 4px rgba(243, 40, 165, 0.6)', // 阴影也改为对应的粉色
+                      zIndex: 65, // 在主圆和评论文字之间
+                      pointerEvents: 'none'
+                    }}
+                  />
+                ))}
+              </div>
 
               {/* 评论文字 - 显示在点的上方 */}
-              <div
-                className={`absolute bg-white/60 px-2 py-1 text-[7px] leading-tight text-gray-800 whitespace-normal pointer-events-auto transition-opacity duration-500 ${
-                  isHidden ? 'opacity-0' : 'opacity-100'
-                }`}
-                style={{
-                  backdropFilter: 'blur(4px)',
-                  minHeight: 'auto',
-                  minWidth: '150px',
-                  maxWidth: '250px',
-                  left: '0',
-                  bottom: '15px',
-                  transform: 'translateX(-50%)'
-                }}
-                onMouseEnter={() => {
-                  // 鼠标悬浮时重新显示
-                  if (isHidden) {
-                    setHiddenTags(prev => {
-                      const newSet = new Set(prev);
-                      newSet.delete(tag.id);
-                      return newSet;
-                    });
+              {/* 在passed区域内的黑色artist点不显示评论 */}
+              {!(!isProtestTag && inPassedZone) && (
+                <div
+                  className={`absolute px-2 py-1 text-[7px] leading-tight whitespace-normal pointer-events-auto transition-opacity duration-500 ${
+                    isProtestTag
+                      ? 'bg-white opacity-100 font-bold' // 抗议标签加粗
+                      : `bg-white/60 text-gray-800 ${isHidden ? 'opacity-0' : 'opacity-100'}`
+                  }`}
+                  style={{
+                    backdropFilter: isProtestTag ? 'none' : 'blur(4px)',
+                    minHeight: 'auto',
+                    minWidth: '150px',
+                    maxWidth: '250px',
+                    left: '0',
+                    bottom: '18px',
+                    transform: 'translateX(-50%)',
+                    zIndex: isProtestTag ? 80 : 50,
+                    color: isProtestTag ? '#E70014' : undefined // 抗议文本使用E70014红色
+                  }}
+                  onMouseEnter={() => {
+                    // 鼠标悬浮时重新显示（非抗议标签）
+                    if (!isProtestTag && isHidden) {
+                      setHiddenTags(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(tag.id);
+                        return newSet;
+                      });
+                    }
+                  }}
+                >
+                  {isProtestTag
+                    ? (protestTextIndexes[tag.id] !== undefined
+                        ? PROTEST_TEXTS[protestTextIndexes[tag.id]]
+                        : PROTEST_TEXTS[0]) // 默认使用第一个抗议文本
+                    : tag.content.thought
                   }
-                }}
-              >
-                {tag.content.thought}
 
                 {/* 从评论框底部向下延伸的连接线 */}
                 <div
-                  className={`absolute w-0.5 h-[15px] bg-white/60 transition-opacity duration-500 ${
-                    isHidden ? 'opacity-0' : 'opacity-100'
+                  className={`absolute w-0.5 h-[18px] transition-opacity duration-500 ${
+                    isProtestTag
+                      ? 'opacity-100'
+                      : `bg-white/60 ${isHidden ? 'opacity-0' : 'opacity-100'}`
                   }`}
                   style={{
-                    backdropFilter: 'blur(4px)',
+                    backdropFilter: isProtestTag ? 'none' : 'blur(4px)',
                     left: '50%',
                     top: '100%',
-                    transform: 'translateX(-50%)'
+                    transform: 'translateX(-50%)',
+                    zIndex: isProtestTag ? 5 : 10,
+                    background: isProtestTag
+                      ? 'linear-gradient(to top, #ec4899, #ffffff)' // 自下而上从粉色渐变到白色
+                      : undefined
                   }}
                 />
               </div>
+              )}
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+
+      {/* 抗议标签的粉色涟漪动画 */}
+      {(() => {
+        const entries = Object.entries(allPinkPositions);
+        return entries.map(([tagId, position]) => {
+          return (
+            <div
+              key={`pink-animation-${tagId}`}
+              className="absolute pointer-events-none"
+              style={{
+                left: `${position.x}px`,
+                top: `${position.y}px`,
+                width: '0px',
+                height: '0px',
+                zIndex: 40 // 在抗议文本(80)之下，在圆点(60)之下
+              }}
+            >
+              {/* 三层粉色轮廓涟漪动画 - 直接以父容器为中心 */}
+              <div
+                className="absolute rounded-full animate-ping"
+                style={{
+                  width: '60px',
+                  height: '60px',
+                  left: '-30px', // 宽度一半：60/2 = 30
+                  top: '-30px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid rgba(236, 72, 153, 1)', // 1px 粉色轮廓
+                  animationDuration: '2s'
+                }}
+              />
+              <div
+                className="absolute rounded-full animate-ping"
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  left: '-20px', // 宽度一半：40/2 = 20
+                  top: '-20px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid rgba(236, 72, 153, 1)', // 1px 粉色轮廓
+                  animationDuration: '2.5s',
+                  animationDelay: '0.5s'
+                }}
+              />
+              <div
+                className="absolute rounded-full animate-ping"
+                style={{
+                  width: '80px',
+                  height: '80px',
+                  left: '-40px', // 宽度一半：80/2 = 40
+                  top: '-40px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid rgba(236, 72, 153, 1)', // 1px 粉色轮廓
+                  animationDuration: '3s',
+                  animationDelay: '1s'
+                }}
+              />
+            </div>
+          );
+        });
+      })()}
+    </>
   );
 }

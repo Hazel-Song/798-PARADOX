@@ -68,7 +68,7 @@ export class TrajectorySystem {
     const randomGridX = Math.floor(random1 * gridInfo.width);
     const randomGridY = Math.floor(random2 * gridInfo.height);
 
-    // 🔧 使用GridSystem的统一边界计算 - 与移动逻辑完全一致
+    // 🔧 使用GridSystem的实际画布尺寸
     const canvasDims = this.gridSystem.getCanvasDimensions();
 
     // 计算画布坐标 - 在网格单元中心位置
@@ -83,7 +83,7 @@ export class TrajectorySystem {
     console.log('🎯 Character Creation Coordinate Debug:', {
       artistId,
       gridInfo,
-      canvasDims,
+      canvasDimensions: canvasDims,
       randomGrid: { x: randomGridX, y: randomGridY },
       cellSize: { width: actualCellWidth, height: actualCellHeight },
       'Method1_TrajectorySystem': { x: startCanvasX, y: startCanvasY },
@@ -94,12 +94,12 @@ export class TrajectorySystem {
       }
     });
 
-    // 🚨 使用与移动逻辑完全相同的边界检查
+    // 🚨 使用实际画布尺寸的边界检查
     const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3;
     const minValidX = margin;
     const minValidY = margin;
     const maxValidX = canvasDims.width - margin;
-    const maxValidY = canvasDims.height - margin; // 关键：使用GridSystem的canvas高度
+    const maxValidY = canvasDims.height - margin;
 
     const clampedX = Math.max(minValidX, Math.min(maxValidX, startCanvasX));
     const clampedY = Math.max(minValidY, Math.min(maxValidY, startCanvasY));
@@ -156,7 +156,7 @@ export class TrajectorySystem {
     let currentCanvasY = this.character.position.y;
 
     for (let i = 0; i < 20; i++) {
-      // 🔧 使用GridSystem的统一边界计算
+      // 🔧 使用GridSystem的实际画布尺寸
       const gridInfo = this.gridSystem.getGridInfo();
       const canvasDims = this.gridSystem.getCanvasDimensions();
 
@@ -180,12 +180,12 @@ export class TrajectorySystem {
         const nextCanvasX = (randomGridX + 0.5) * actualCellWidth;
         const nextCanvasY = (randomGridY + 0.5) * actualCellHeight;
 
-        // 🚨 使用与移动逻辑完全相同的边界检查
+        // 🚨 使用实际画布尺寸的边界检查
         const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3;
         const minValidX = margin;
         const minValidY = margin;
         const maxValidX = canvasDims.width - margin;
-        const maxValidY = canvasDims.height - margin; // 关键：使用GridSystem的canvas高度
+        const maxValidY = canvasDims.height - margin;
 
         clampedX = Math.max(minValidX, Math.min(maxValidX, nextCanvasX));
         clampedY = Math.max(minValidY, Math.min(maxValidY, nextCanvasY));
@@ -454,20 +454,20 @@ export class TrajectorySystem {
         const newX = this.character.position.x + moveX;
         const newY = this.character.position.y + moveY;
 
-        // 🔧 CRITICAL FIX: 使用GridSystem统一的边界计算方法
+        // 🔧 使用GridSystem的实际画布尺寸和网格信息
         const gridInfo = this.gridSystem.getGridInfo();
-        const canvasDims = this.gridSystem.getCanvasDimensions(); // 从GridSystem获取准确的canvas尺寸
+        const canvasDims = this.gridSystem.getCanvasDimensions();
 
-        // 重新计算实际的单元格尺寸
+        // 重新计算实际的单元格尺寸（基于实际画布尺寸）
         const actualCellWidth = canvasDims.width / gridInfo.width;
         const actualCellHeight = canvasDims.height / gridInfo.height;
 
-        // 🚨 KEY FIX: 使用更严格的边界计算 - 确保下边界绝对精准
-        const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3; // 减少边距以更严格控制
+        // 🚨 使用实际画布尺寸的边界计算
+        const margin = Math.min(actualCellWidth, actualCellHeight) * 0.3;
         const minValidX = margin;
         const minValidY = margin;
         const maxValidX = canvasDims.width - margin;
-        const maxValidY = canvasDims.height - margin; // 使用GridSystem的实际canvas高度
+        const maxValidY = canvasDims.height - margin;
 
         // 🎯 强制边界限制 - 绝对不允许超出
         let finalX = newX;
@@ -497,7 +497,7 @@ export class TrajectorySystem {
             intended: { x: newX, y: newY },
             final: { x: finalX, y: finalY },
             boundaries: { minX: minValidX, maxX: maxValidX, minY: minValidY, maxY: maxValidY },
-            canvasDims,
+            fixedDimensions: { width: canvasDims.width, height: canvasDims.height },
             gridInfo,
             margin
           });
@@ -531,7 +531,7 @@ export class TrajectorySystem {
         if (Math.random() < 0.01) { // 偶尔打印调试信息
           console.log('Position update:', {
             canvasPos: { x: this.character.position.x, y: this.character.position.y },
-            canvasDims,
+            fixedDimensions: { width: canvasDims.width, height: canvasDims.height },
             gridPos: this.character.gridPosition,
             currentSpeed
           });
