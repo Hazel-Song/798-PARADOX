@@ -233,6 +233,7 @@ REPLICATE_API_TOKEN=your_replicate_token_here
 
 ## Recent Development History
 
+- **3698ffc** (Nov 21) - Enhance period-2 and period-3 visual styles for passed circles and comment tags
 - **4a3c374** (Nov 21) - Fix government role visibility in period-3 auto-transition
 - **2920d4d** (Nov 21) - Fix government typewriter animation and snapshot restoration system
 - **c78c714** (Nov 21) - Implement automatic period transitions and comprehensive documentation
@@ -356,12 +357,31 @@ When comparing period names in components (like `WanderingGovernment.shouldShow`
 - Pink ripple animation for protest tags
 - Auto-cleanup of expired tags
 - Grid-cell-based positioning
+- **Period-3 (2006–2010) visual style**:
+  - Normal tags: #FFF5DB fill at 100% opacity, single 16px white outline at 30% opacity
+  - Enhanced #4F4F37 glow effect (shadowBlur: 25)
+  - No 24px outer ring
+  - Protest tags: Text box and connecting line hidden, #FF3E33 color (instead of pink)
+- **Z-index layering**: Normal tags (default), passed zone tags (z-index: 40), protest tags (z-index: 60)
 
 ### 6. Studio Emergence Mechanic
 - Tracks tags per grid cell
 - Creates studio circles at 2+ tags
 - Studio circles support government evaluation
 - Different evaluation states (evaluating, passed, demolished)
+- **Period-2 (2002-2006) passed circle style**:
+  - 30% opacity #FF8126 fill
+  - 1px solid #FF8126 outline
+  - Gradient dot pattern: #FF3E33 (center) → #FF8126 (edge)
+  - Dot size: 4px diameter, 6px spacing
+  - Circle size: 50px-125px radius (half of period-1)
+- **Period-3 (2006–2010) passed circle style**:
+  - 30% opacity #FF8126 fill
+  - 1px solid #FF8126 outline
+  - Gradient dot pattern: #F328A5 (pink center) → #FF3E33 → #FF8126 (edge)
+  - Dot size: 4px diameter, 6px spacing
+  - Pink center point (#F328A5)
+- **Dependency fix**: `currentPeriodId` added to canvas animation dependency array to ensure consistent styling during auto-transitions
 
 ### 7. Time Travel System
 - Save state snapshots per period
