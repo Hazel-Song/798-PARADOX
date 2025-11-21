@@ -469,6 +469,15 @@ const MapLayout = () => {
       // 保存当前时期的状态快照
       saveCurrentPeriodSnapshot();
 
+      // 标记所有现有的commentTags为isPrePeriod3Tag
+      setCommentTags(prev => {
+        console.log(`📌 Marking ${prev.length} existing tags as pre-period-3 tags`);
+        return prev.map(tag => ({
+          ...tag,
+          isPrePeriod3Tag: true
+        }));
+      });
+
       // 切换到period3（2006-2010）- 注意：不清除数据，保持黑色点等内容
       setCurrentPeriodId('period-3');
       // 解锁period3
@@ -802,6 +811,25 @@ const MapLayout = () => {
         });
       }
     }
+  };
+
+  // Period-3 政府评估commentTag处理器
+  const handleCommentTagEvaluation = (tagId: string) => {
+    console.log(`🏛️ Period-3 comment tag evaluation: ${tagId}`);
+
+    // 更新commentTag的isGovernmentEvaluated状态
+    setCommentTags(prev => {
+      return prev.map(tag => {
+        if (tag.id === tagId) {
+          console.log(`🟠 Marking tag as government evaluated:`, tag.id);
+          return {
+            ...tag,
+            isGovernmentEvaluated: true
+          };
+        }
+        return tag;
+      });
+    });
   };
 
   // 舆论热度更新处理器
@@ -1295,7 +1323,9 @@ const MapLayout = () => {
                   gridSystem={gridSystemRef.current}
                   className="absolute inset-0 z-75"
                   studioCircles={studioCirclesRef.current.getCircles()}
+                  commentTags={commentTags}
                   onStudioEvaluation={handleStudioEvaluation}
+                  onCommentTagEvaluation={handleCommentTagEvaluation}
                   onPublicOpinionHeatUpdate={handlePublicOpinionHeatUpdate}
                   currentPeriod={currentPeriod?.years || ''}
                   isActive={isGovernmentActive}

@@ -6,7 +6,7 @@ This is an interactive, AI-powered visualization system documenting the history 
 
 **Project Type:** Full-stack Next.js React Application with TypeScript
 **Version:** 0.1.0
-**Status:** Active Development (Last commit: Nov 21, 2025 - Fix government role visibility in period-3)
+**Status:** Active Development (Last commit: Nov 21, 2025 - Period-3 government evaluation and visual style updates)
 
 ## Technology Stack
 
@@ -233,6 +233,7 @@ REPLICATE_API_TOKEN=your_replicate_token_here
 
 ## Recent Development History
 
+- **Current** (Nov 21) - Period-3 government evaluation of commentTags, pre-period-3 tag styling, REGULATOR label
 - **3698ffc** (Nov 21) - Enhance period-2 and period-3 visual styles for passed circles and comment tags
 - **4a3c374** (Nov 21) - Fix government role visibility in period-3 auto-transition
 - **2920d4d** (Nov 21) - Fix government typewriter animation and snapshot restoration system
@@ -350,6 +351,10 @@ When comparing period names in components (like `WanderingGovernment.shouldShow`
 - **Typewriter animation** cycles through government input principles during evaluation
 - **Reset method** (`reset()`) clears all internal state on snapshot restore
 - **Period visibility**: Active in period-2 (`2002-2006`) and period-3 (`2006–2010`)
+- **"REGULATOR" label**: Orange (#FF550F) text displayed above government character, 12px monospace font with glow effect
+- **Period-specific behavior**:
+  - Period-2: Evaluates studio circles (10s evaluation time), alternating demolish/passed results
+  - Period-3: Evaluates comment tags (3s evaluation time), marks them with black fill + orange glow
 
 ### 5. Comment Tag System
 - Floating tags with sight/thought content
@@ -357,11 +362,16 @@ When comparing period names in components (like `WanderingGovernment.shouldShow`
 - Pink ripple animation for protest tags
 - Auto-cleanup of expired tags
 - Grid-cell-based positioning
-- **Period-3 (2006–2010) visual style**:
-  - Normal tags: #FFF5DB fill at 100% opacity, single 16px white outline at 30% opacity
-  - Enhanced #4F4F37 glow effect (shadowBlur: 25)
-  - No 24px outer ring
-  - Protest tags: Text box and connecting line hidden, #FF3E33 color (instead of pink)
+- **CommentTag interface properties**:
+  - `isPrePeriod3Tag`: Boolean flag for tags created before period-3 transition
+  - `isGovernmentEvaluated`: Boolean flag for tags evaluated by government in period-3
+  - `isProtestTag`: Boolean flag for tags in passed zones
+  - `period3Config`: Optional config with `expandedRadius` (50-100px)
+- **Period-3 tag styles**:
+  - Pre-period-3 tags (existing at transition): #857D72 glow + #C2B89D fill
+  - New period-3 tags: White fill + white glow (same as period-1/2)
+  - Government-evaluated tags: Black fill (#000) + orange glow (#FF550F)
+  - Protest tags: Expanded circle (50-100px, 1px white border, 20% white fill)
 - **Z-index layering**: Normal tags (default), passed zone tags (z-index: 40), protest tags (z-index: 60)
 
 ### 6. Studio Emergence Mechanic

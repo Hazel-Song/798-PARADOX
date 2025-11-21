@@ -24,6 +24,11 @@ export interface CommentTag {
   characterId: string;
   evaluationResult?: 'demolish' | 'passed'; // 新增：政府评估结果
   isProtestTag?: boolean; // 新增：标记是否为抗议标签（在passed区域内创建的）
+  isGovernmentEvaluated?: boolean; // 新增：标记是否已被政府评估（period-3中使用）
+  isPrePeriod3Tag?: boolean; // 新增：标记是否是进入period-3之前创建的标签
+  period3Config?: { // 新增：period-3抗议标签的随机配置
+    expandedRadius: number;  // 50-100
+  };
 }
 
 interface PassedZone {
@@ -62,6 +67,9 @@ export default function CommentTags({
 
   // 浮动粒子动画状态 - 简化版本，使用CSS动画避免JS循环
   const [protestTagParticles, setProtestTagParticles] = useState<Record<string, Particle[]>>({});
+
+  // period-3抗议标签的随机配置
+  const [period3Configs, setPeriod3Configs] = useState<Record<string, { expandedRadius: number }>>({});
 
   // 使用从父组件传入的demolishedProtestPositions替代原来的hiddenProtestPositions
 
@@ -167,7 +175,7 @@ export default function CommentTags({
     setVisibleTags(realTags);
   }, [tags]); // 移除 particles 依赖避免无限循环
 
-  // 为抗议标签初始化文本索引
+  // 为抗议标签初始化文本索引和period-3配置
   useEffect(() => {
     tags.forEach(tag => {
       if (tag.isProtestTag && !protestTextIndexes[tag.id]) {
@@ -176,8 +184,18 @@ export default function CommentTags({
           [tag.id]: Math.floor(Math.random() * PROTEST_TEXTS.length)
         }));
       }
+
+      // 在period-3中为抗议标签生成随机配置
+      if (tag.isProtestTag && currentPeriod === '2006–2010' && !period3Configs[tag.id]) {
+        setPeriod3Configs(prev => ({
+          ...prev,
+          [tag.id]: {
+            expandedRadius: 50 + Math.random() * 50 // 50-100px
+          }
+        }));
+      }
     });
-  }, [tags, protestTextIndexes]);
+  }, [tags, protestTextIndexes, currentPeriod, period3Configs]);
 
   // 监控新添加的标签，设置2个标签后消失的逻辑
   useEffect(() => {
@@ -223,6 +241,10 @@ export default function CommentTags({
   useEffect(() => {
     setLocalPinkPositions({});
     setTriggeredAnimations(new Set());
+    // 如果不是period-3，清理period-3配置
+    if (currentPeriod !== '2006–2010') {
+      setPeriod3Configs({});
+    }
   }, [currentPeriod]);
 
   // 清理不存在的标签对应的粉色动画位置
@@ -280,6 +302,8 @@ export default function CommentTags({
           const isHidden = hiddenTags.has(tag.id);
           const isProtestTag = tag.isProtestTag === true;
           const inPassedZone = !isProtestTag && isPointInPassedZone(tag.position.x, tag.position.y);
+          const isGovernmentEvaluated = tag.isGovernmentEvaluated === true; // period-3中被政府评估过的标签
+          const isPrePeriod3Tag = tag.isPrePeriod3Tag === true && currentPeriod === '2006–2010'; // period-3之前创建的标签，在period-3中显示特殊样式
 
           return (
             <div
@@ -292,34 +316,36 @@ export default function CommentTags({
             >
               {/* 标签指示点 - 三种样式 + period-3特殊样式 */}
               <div className="relative group">
-                {/* 柔和外层光晕 - period-3中移除 */}
-                {currentPeriod !== '2006–2010' && (
-                  <div
-                    className={`absolute rounded-full blur-sm opacity-30 ${
-                      isProtestTag
-                        ? 'bg-white' // 抗议标签保持白色
-                        : inPassedZone
-                          ? 'bg-[#FF550F]' // passed区域保持橙色
+                {/* 柔和外层光晕 */}
+                <div
+                  className={`absolute rounded-full blur-sm opacity-30 ${
+                    isProtestTag
+                      ? 'bg-white' // 抗议标签保持白色
+                      : (inPassedZone || isGovernmentEvaluated)
+                        ? 'bg-[#FF550F]' // passed区域或政府评估过的标签保持橙色
+                        : isPrePeriod3Tag
+                          ? 'bg-[#857D72]' // period-3之前创建的标签使用#857D72光晕
                           : 'bg-white' // 其他所有情况都改为白色
-                    }`}
-                    style={{
-                      width: isProtestTag ? '32px' : '32px',
-                      height: isProtestTag ? '32px' : '32px',
-                      left: '0',
-                      top: '0',
-                      transform: 'translate(-50%, -50%)'
-                    }}
-                  />
-                )}
+                  }`}
+                  style={{
+                    width: isProtestTag ? '32px' : '32px',
+                    height: isProtestTag ? '32px' : '32px',
+                    left: '0',
+                    top: '0',
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                />
 
                 {/* 核心亮点 */}
                 <div
                   className={`absolute rounded-full shadow-lg ${
                     isProtestTag
                       ? (currentPeriod === '2006–2010' ? 'bg-[#FF3E33]' : 'bg-pink-500') // period-3中抗议标签变为#FF3E33
-                      : inPassedZone
-                        ? 'bg-black shadow-[#FF550F]/80 color-change-animation' // passed区域保持黑色
-                        : 'bg-[#FFF5DB]' // 所有情况都使用#FFF5DB
+                      : (inPassedZone || isGovernmentEvaluated)
+                        ? 'bg-black shadow-[#FF550F]/80 color-change-animation' // passed区域或政府评估过的标签保持黑色
+                        : isPrePeriod3Tag
+                          ? 'bg-[#C2B89D]' // period-3之前创建的标签使用#C2B89D填充
+                          : 'bg-[#FFF5DB]' // 其他情况都使用#FFF5DB
                   }`}
                   style={{
                     width: isProtestTag ? '22px' : '8px',
@@ -327,21 +353,17 @@ export default function CommentTags({
                     left: '0',
                     top: '0',
                     transform: 'translate(-50%, -50%)',
-                    border: isProtestTag
-                      ? '5px solid #ffffff'
-                      : (currentPeriod === '2006–2010' && !isProtestTag && !inPassedZone
-                          ? 'none' // period-3中普通标签移除核心边框
-                          : undefined),
-                    zIndex: isProtestTag ? 60 : (inPassedZone ? 40 : undefined),
+                    border: isProtestTag ? '5px solid #ffffff' : undefined,
+                    zIndex: isProtestTag ? 60 : ((inPassedZone || isGovernmentEvaluated) ? 40 : undefined),
                     boxShadow: isProtestTag
                       ? (currentPeriod === '2006–2010'
                           ? '0 0 30px 6px rgba(255, 255, 255, 0.8), 0 0 20px 4px rgba(255, 255, 255, 0.9), 0 0 12px 2px rgba(255, 255, 255, 1), 0 0 10px 3px rgba(255, 62, 51, 0.9), 0 0 6px 2px rgba(255, 62, 51, 1)' // period-3: #FF3E33光晕
                           : '0 0 30px 6px rgba(255, 255, 255, 0.8), 0 0 20px 4px rgba(255, 255, 255, 0.9), 0 0 12px 2px rgba(255, 255, 255, 1), 0 0 10px 3px rgba(236, 72, 153, 0.9), 0 0 6px 2px rgba(236, 72, 153, 1)') // 原粉色光晕
-                      : inPassedZone
-                        ? '0 0 10px 2px rgba(255, 85, 15, 0.8), 0 0 6px 1px rgba(255, 85, 15, 1)' // passed区域保持橙色阴影
-                        : (currentPeriod === '2006–2010'
-                            ? '0 0 25px 6px rgba(79, 79, 55, 0.9), 0 0 15px 4px rgba(79, 79, 55, 1)' // period-3中增强#4F4F37光晕
-                            : '0 0 10px 2px rgba(255, 245, 219, 0.6), 0 0 6px 1px rgba(255, 245, 219, 0.8)') // 其他情况使用#FFF5DB阴影
+                      : (inPassedZone || isGovernmentEvaluated)
+                        ? '0 0 10px 2px rgba(255, 85, 15, 0.8), 0 0 6px 1px rgba(255, 85, 15, 1)' // passed区域或政府评估过的标签保持橙色阴影
+                        : isPrePeriod3Tag
+                          ? '0 0 10px 2px rgba(133, 125, 114, 0.8), 0 0 6px 1px rgba(133, 125, 114, 1)' // period-3之前创建的标签使用#857D72光晕
+                          : '0 0 10px 2px rgba(255, 245, 219, 0.6), 0 0 6px 1px rgba(255, 245, 219, 0.8)' // 所有情况使用#FFF5DB阴影
                   }}
                 >
                 </div>
@@ -362,23 +384,6 @@ export default function CommentTags({
                   />
                 )}
 
-                {/* period-3中普通标签的白色外轮廓 - 只保留16px，透明度30% */}
-                {currentPeriod === '2006–2010' && !isProtestTag && !inPassedZone && (
-                  <div
-                    className="absolute rounded-full"
-                    style={{
-                      width: '16px',
-                      height: '16px',
-                      left: '0',
-                      top: '0',
-                      transform: 'translate(-50%, -50%)',
-                      border: '1px solid rgba(255, 255, 255, 0.3)', // 30%透明度白色
-                      backgroundColor: 'transparent',
-                      zIndex: 25
-                    }}
-                  />
-                )}
-
                 {/* 抗议标签的外轮廓圆圈 - 1px外圆 - 扩大一倍 */}
                 {isProtestTag && (
                   <div
@@ -392,6 +397,23 @@ export default function CommentTags({
                       border: '1px solid rgba(255, 255, 255, 0.8)', // 1px白色外轮廓
                       backgroundColor: 'transparent',
                       zIndex: 55 // 在主圆之下，在passed圆之上
+                    }}
+                  />
+                )}
+
+                {/* period-3抗议标签的扩张圆 */}
+                {isProtestTag && currentPeriod === '2006–2010' && period3Configs[tag.id] && (
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      width: `${period3Configs[tag.id].expandedRadius * 2}px`,
+                      height: `${period3Configs[tag.id].expandedRadius * 2}px`,
+                      left: '0',
+                      top: '0',
+                      transform: 'translate(-50%, -50%)',
+                      border: '1px solid rgba(255, 255, 255, 1)', // 1px白色实线
+                      backgroundColor: 'rgba(255, 255, 255, 0.2)', // 20%白色填充
+                      zIndex: 54 // 在外轮廓之下
                     }}
                   />
                 )}

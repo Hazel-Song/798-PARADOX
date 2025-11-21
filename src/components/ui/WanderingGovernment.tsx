@@ -3,12 +3,15 @@
 import { useState, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
 import { GridSystem } from '@/lib/map-grid/GridSystem';
 import { StudioCircle } from './StudioCircles';
+import { CommentTag } from './CommentTags';
 
 interface WanderingGovernmentProps {
   gridSystem: GridSystem;
   className?: string;
   studioCircles: StudioCircle[]; // 切换到工作室圆形数据
+  commentTags?: CommentTag[]; // period-3中评估的commentTags
   onStudioEvaluation?: (circleId: string, result: 'demolish' | 'passed') => void; // 评估结果回调
+  onCommentTagEvaluation?: (tagId: string) => void; // period-3中评估commentTag的回调
   onPublicOpinionHeatUpdate?: (increment: number) => void; // 舆论热度更新回调
   currentPeriod: string;
   isActive?: boolean; // 是否激活政府角色
@@ -43,7 +46,9 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
   gridSystem,
   className = '',
   studioCircles,
+  commentTags = [],
   onStudioEvaluation,
+  onCommentTagEvaluation,
   onPublicOpinionHeatUpdate,
   currentPeriod,
   isActive = false,
@@ -69,6 +74,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
   const governmentInputsRef = useRef<string[]>(governmentInputs);
 
   const [evaluatedCircleIds, setEvaluatedCircleIds] = useState<Set<string>>(new Set());
+  const [evaluatedTagIds, setEvaluatedTagIds] = useState<Set<string>>(new Set()); // period-3中已评估的commentTag ID
   const [nextResult, setNextResult] = useState<'demolish' | 'passed'>('demolish'); // 下一个评估结果
   const [overlayCircles, setOverlayCircles] = useState<Array<{
     id: string;
@@ -93,6 +99,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
       console.log('🧹 WanderingGovernment: Clearing internal state due to period change');
       setCurrentEvaluation(null);
       setEvaluatedCircleIds(new Set());
+      setEvaluatedTagIds(new Set());
       setNextResult('demolish');
       setOverlayCircles([]);
       setPermanentComments([]);
@@ -188,6 +195,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
       console.log('🔄 WanderingGovernment: Resetting all internal state');
       setCurrentEvaluation(null);
       setEvaluatedCircleIds(new Set());
+      setEvaluatedTagIds(new Set());
       setNextResult('demolish');
       setOverlayCircles([]);
       setPermanentComments([]);
@@ -208,6 +216,18 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
   const findNextStudioCircle = () => {
     const unevaluatedCircles = studioCircles.filter(circle => !evaluatedCircleIds.has(circle.id));
     return unevaluatedCircles.length > 0 ? unevaluatedCircles[0] : null;
+  };
+
+  // 寻找下一个需要评估的commentTag（period-3中使用）
+  const findNextCommentTag = () => {
+    // 只评估非抗议标签、未被评估的标签
+    const unevaluatedTags = commentTags.filter(tag =>
+      !evaluatedTagIds.has(tag.id) &&
+      !tag.isProtestTag &&
+      !tag.isGovernmentEvaluated &&
+      !tag.id.startsWith('pending-evaluation-')
+    );
+    return unevaluatedTags.length > 0 ? unevaluatedTags[0] : null;
   };
 
   // 直线移动到目标位置
@@ -250,17 +270,34 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
   useEffect(() => {
     if (!shouldShow || isPaused) return;
 
+    const isPeriod3 = currentPeriod === '2006–2010';
+    const evaluationTime = isPeriod3 ? 3000 : 10000; // period-3中3秒评估，period-2中10秒评估
+
     const interval = setInterval(() => {
-      // 如果当前没有评估任务，寻找下一个工作室圆形
+      // 如果当前没有评估任务，寻找下一个目标
       if (!currentEvaluation) {
-        const nextCircle = findNextStudioCircle();
-        if (nextCircle) {
-          console.log('🏛️ Government targeting studio circle:', nextCircle.id);
-          setCurrentEvaluation({
-            circleId: nextCircle.id,
-            position: { x: nextCircle.centerX, y: nextCircle.centerY },
-            status: 'moving'
-          });
+        if (isPeriod3) {
+          // period-3：评估commentTags
+          const nextTag = findNextCommentTag();
+          if (nextTag) {
+            console.log('🏛️ Government targeting comment tag:', nextTag.id);
+            setCurrentEvaluation({
+              circleId: nextTag.id,
+              position: { x: nextTag.position.x, y: nextTag.position.y },
+              status: 'moving'
+            });
+          }
+        } else {
+          // period-2：评估工作室圆形
+          const nextCircle = findNextStudioCircle();
+          if (nextCircle) {
+            console.log('🏛️ Government targeting studio circle:', nextCircle.id);
+            setCurrentEvaluation({
+              circleId: nextCircle.id,
+              position: { x: nextCircle.centerX, y: nextCircle.centerY },
+              status: 'moving'
+            });
+          }
         }
         return;
       }
@@ -269,18 +306,20 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
       if (currentEvaluation.status === 'moving') {
         const arrived = moveToTarget(currentEvaluation.position);
         if (arrived) {
-          console.log('🏛️ Government arrived at studio circle:', currentEvaluation.circleId);
+          console.log('🏛️ Government arrived at target:', currentEvaluation.circleId);
 
-          // 创建覆盖圆形
-          const targetCircle = studioCircles.find(c => c.id === currentEvaluation.circleId);
-          if (targetCircle) {
-            setOverlayCircles(prev => [...prev, {
-              id: `overlay-${currentEvaluation.circleId}`,
-              centerX: targetCircle.centerX,
-              centerY: targetCircle.centerY,
-              radius: targetCircle.radius,
-              isAnimating: true
-            }]);
+          if (!isPeriod3) {
+            // period-2：创建覆盖圆形
+            const targetCircle = studioCircles.find(c => c.id === currentEvaluation.circleId);
+            if (targetCircle) {
+              setOverlayCircles(prev => [...prev, {
+                id: `overlay-${currentEvaluation.circleId}`,
+                centerX: targetCircle.centerX,
+                centerY: targetCircle.centerY,
+                radius: targetCircle.radius,
+                isAnimating: true
+              }]);
+            }
           }
 
           // 开始评估
@@ -295,69 +334,105 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
       // 如果正在评估
       if (currentEvaluation.status === 'evaluating' && currentEvaluation.startTime) {
         const elapsed = Date.now() - currentEvaluation.startTime;
-        if (elapsed >= 10000) { // 10秒评估时间
-          // 使用交替结果：demolish → passed → demolish → passed
-          const result = nextResult;
+        if (elapsed >= evaluationTime) {
+          if (isPeriod3) {
+            // period-3：评估完成后标记commentTag
+            console.log(`🏛️ Government evaluated comment tag:`, currentEvaluation.circleId);
 
-          console.log(`🏛️ Government evaluation result: ${result} for circle:`, currentEvaluation.circleId);
+            // 通知父组件评估结果
+            if (onCommentTagEvaluation) {
+              onCommentTagEvaluation(currentEvaluation.circleId);
+            }
 
-          // 更新评估结果
-          setCurrentEvaluation(prev => prev ? {
-            ...prev,
-            status: 'completed',
-            result
-          } : null);
+            // 标记为已评估
+            setEvaluatedTagIds(prev => new Set([...prev, currentEvaluation.circleId]));
 
-          // 通知动画完成
-          if (onAnimationComplete) {
-            onAnimationComplete();
+            // 增加舆论热度
+            if (onPublicOpinionHeatUpdate) {
+              onPublicOpinionHeatUpdate(1);
+            }
+
+            // 更新评估结果
+            setCurrentEvaluation(prev => prev ? {
+              ...prev,
+              status: 'completed',
+              result: 'demolish' // period-3中所有评估结果都视为某种形式的"控制"
+            } : null);
+
+            // 通知动画完成
+            if (onAnimationComplete) {
+              onAnimationComplete();
+            }
+
+            // 500ms后开始寻找下一个目标
+            setTimeout(() => {
+              setCurrentEvaluation(null);
+            }, 500);
+          } else {
+            // period-2原有逻辑
+            // 使用交替结果：demolish → passed → demolish → passed
+            const result = nextResult;
+
+            console.log(`🏛️ Government evaluation result: ${result} for circle:`, currentEvaluation.circleId);
+
+            // 更新评估结果
+            setCurrentEvaluation(prev => prev ? {
+              ...prev,
+              status: 'completed',
+              result
+            } : null);
+
+            // 通知动画完成
+            if (onAnimationComplete) {
+              onAnimationComplete();
+            }
+
+            // 切换下一个结果
+            setNextResult(result === 'demolish' ? 'passed' : 'demolish');
+
+            // 通知父组件评估结果
+            if (onStudioEvaluation) {
+              onStudioEvaluation(currentEvaluation.circleId, result);
+            }
+
+            // 创建永久评论（特别是passed评论）
+            if (result === 'passed') {
+              const permanentComment: PermanentGovernmentComment = {
+                id: `gov-comment-${currentEvaluation.circleId}-${Date.now()}`,
+                position: currentEvaluation.position,
+                result: result,
+                timestamp: Date.now()
+              };
+
+              setPermanentComments(prev => [...prev, permanentComment]);
+              console.log('✅ Created permanent government comment for passed evaluation:', permanentComment);
+            }
+
+            // 如果是demolish，移除覆盖圆形；如果是passed，保留覆盖圆形
+            if (result === 'demolish') {
+              setOverlayCircles(prev => prev.filter(c => c.id !== `overlay-${currentEvaluation.circleId}`));
+              console.log('🗑️ Removed overlay circle for demolished studio');
+            }
+
+            // 如果是demolish，增加舆论热度
+            if (result === 'demolish' && onPublicOpinionHeatUpdate) {
+              onPublicOpinionHeatUpdate(1);
+            }
+
+            // 标记为已评估
+            setEvaluatedCircleIds(prev => new Set([...prev, currentEvaluation.circleId]));
+
+            // 1秒后开始寻找下一个目标
+            setTimeout(() => {
+              setCurrentEvaluation(null);
+            }, 1000);
           }
-
-          // 切换下一个结果
-          setNextResult(result === 'demolish' ? 'passed' : 'demolish');
-
-          // 通知父组件评估结果
-          if (onStudioEvaluation) {
-            onStudioEvaluation(currentEvaluation.circleId, result);
-          }
-
-          // 创建永久评论（特别是passed评论）
-          if (result === 'passed') {
-            const permanentComment: PermanentGovernmentComment = {
-              id: `gov-comment-${currentEvaluation.circleId}-${Date.now()}`,
-              position: currentEvaluation.position,
-              result: result,
-              timestamp: Date.now()
-            };
-
-            setPermanentComments(prev => [...prev, permanentComment]);
-            console.log('✅ Created permanent government comment for passed evaluation:', permanentComment);
-          }
-
-          // 如果是demolish，移除覆盖圆形；如果是passed，保留覆盖圆形
-          if (result === 'demolish') {
-            setOverlayCircles(prev => prev.filter(c => c.id !== `overlay-${currentEvaluation.circleId}`));
-            console.log('🗑️ Removed overlay circle for demolished studio');
-          }
-
-          // 如果是demolish，增加舆论热度
-          if (result === 'demolish' && onPublicOpinionHeatUpdate) {
-            onPublicOpinionHeatUpdate(1);
-          }
-
-          // 标记为已评估
-          setEvaluatedCircleIds(prev => new Set([...prev, currentEvaluation.circleId]));
-
-          // 1秒后开始寻找下一个目标
-          setTimeout(() => {
-            setCurrentEvaluation(null);
-          }, 1000);
         }
       }
     }, 50);
 
     return () => clearInterval(interval);
-  }, [currentEvaluation, isPaused, shouldShow, studioCircles, position]);
+  }, [currentEvaluation, isPaused, shouldShow, studioCircles, commentTags, position, currentPeriod]);
 
   // 绘制覆盖圆形和扩展圆动画
   useEffect(() => {
@@ -490,6 +565,20 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
           }}
         >
           <div className="relative">
+            {/* REGULATOR 标签 - 橙色文本跟随政府角色 */}
+            <div
+              className="absolute text-[12px] font-mono whitespace-nowrap"
+              style={{
+                color: '#FF550F',
+                bottom: '18px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                textShadow: '0 0 4px rgba(255, 85, 15, 0.6)'
+              }}
+            >
+              REGULATOR
+            </div>
+
             {/* #FF550F色正棱形 - 正方形旋转45度 */}
             <div
               className="w-[10px] h-[10px]"
