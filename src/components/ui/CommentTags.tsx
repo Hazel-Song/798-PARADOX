@@ -281,15 +281,6 @@ export default function CommentTags({
           const isProtestTag = tag.isProtestTag === true;
           const inPassedZone = !isProtestTag && isPointInPassedZone(tag.position.x, tag.position.y);
 
-          // 调试日志
-          if (isProtestTag) {
-            console.log('🎨 Rendering PROTEST TAG:', {
-              id: tag.id,
-              isProtestTag,
-              content: tag.content.thought
-            });
-          }
-
           return (
             <div
               key={tag.id}
@@ -299,34 +290,36 @@ export default function CommentTags({
                 top: `${tag.position.y}px`,
               }}
             >
-              {/* 标签指示点 - 三种样式 */}
+              {/* 标签指示点 - 三种样式 + period-3特殊样式 */}
               <div className="relative group">
-                {/* 柔和外层光晕 */}
-                <div
-                  className={`absolute rounded-full blur-sm opacity-30 ${
-                    isProtestTag
-                      ? 'bg-white' // 抗议标签保持白色
-                      : inPassedZone
-                        ? 'bg-[#FF550F]' // passed区域保持橙色
-                        : 'bg-white' // 其他所有情况都改为白色
-                  }`}
-                  style={{
-                    width: isProtestTag ? '32px' : '32px',
-                    height: isProtestTag ? '32px' : '32px',
-                    left: '0',
-                    top: '0',
-                    transform: 'translate(-50%, -50%)'
-                  }}
-                />
+                {/* 柔和外层光晕 - period-3中移除 */}
+                {currentPeriod !== '2006–2010' && (
+                  <div
+                    className={`absolute rounded-full blur-sm opacity-30 ${
+                      isProtestTag
+                        ? 'bg-white' // 抗议标签保持白色
+                        : inPassedZone
+                          ? 'bg-[#FF550F]' // passed区域保持橙色
+                          : 'bg-white' // 其他所有情况都改为白色
+                    }`}
+                    style={{
+                      width: isProtestTag ? '32px' : '32px',
+                      height: isProtestTag ? '32px' : '32px',
+                      left: '0',
+                      top: '0',
+                      transform: 'translate(-50%, -50%)'
+                    }}
+                  />
+                )}
 
                 {/* 核心亮点 */}
                 <div
                   className={`absolute rounded-full shadow-lg ${
                     isProtestTag
-                      ? 'bg-pink-500' // 抗议标签使用粉色背景
+                      ? (currentPeriod === '2006–2010' ? 'bg-[#FF3E33]' : 'bg-pink-500') // period-3中抗议标签变为#FF3E33
                       : inPassedZone
                         ? 'bg-black shadow-[#FF550F]/80 color-change-animation' // passed区域保持黑色
-                        : 'bg-[#FFF5DB] shadow-[#FFF5DB]/80' // 其他所有情况都改为#FFF5DB
+                        : 'bg-[#FFF5DB]' // 所有情况都使用#FFF5DB
                   }`}
                   style={{
                     width: isProtestTag ? '22px' : '8px',
@@ -334,13 +327,21 @@ export default function CommentTags({
                     left: '0',
                     top: '0',
                     transform: 'translate(-50%, -50%)',
-                    border: isProtestTag ? '5px solid #ffffff' : undefined, // 5px 白色边框
-                    zIndex: isProtestTag ? 60 : (inPassedZone ? 30 : undefined), // 抗议标签降低z-index，黑色圆点提高z-index以覆盖passed圆填充
+                    border: isProtestTag
+                      ? '5px solid #ffffff'
+                      : (currentPeriod === '2006–2010' && !isProtestTag && !inPassedZone
+                          ? 'none' // period-3中普通标签移除核心边框
+                          : undefined),
+                    zIndex: isProtestTag ? 60 : (inPassedZone ? 40 : undefined),
                     boxShadow: isProtestTag
-                      ? '0 0 30px 6px rgba(255, 255, 255, 0.8), 0 0 20px 4px rgba(255, 255, 255, 0.9), 0 0 12px 2px rgba(255, 255, 255, 1), 0 0 10px 3px rgba(236, 72, 153, 0.9), 0 0 6px 2px rgba(236, 72, 153, 1)' // 更强烈的白色外光晕 + 粉色内光晕混合
+                      ? (currentPeriod === '2006–2010'
+                          ? '0 0 30px 6px rgba(255, 255, 255, 0.8), 0 0 20px 4px rgba(255, 255, 255, 0.9), 0 0 12px 2px rgba(255, 255, 255, 1), 0 0 10px 3px rgba(255, 62, 51, 0.9), 0 0 6px 2px rgba(255, 62, 51, 1)' // period-3: #FF3E33光晕
+                          : '0 0 30px 6px rgba(255, 255, 255, 0.8), 0 0 20px 4px rgba(255, 255, 255, 0.9), 0 0 12px 2px rgba(255, 255, 255, 1), 0 0 10px 3px rgba(236, 72, 153, 0.9), 0 0 6px 2px rgba(236, 72, 153, 1)') // 原粉色光晕
                       : inPassedZone
                         ? '0 0 10px 2px rgba(255, 85, 15, 0.8), 0 0 6px 1px rgba(255, 85, 15, 1)' // passed区域保持橙色阴影
-                        : '0 0 10px 2px rgba(255, 245, 219, 0.6), 0 0 6px 1px rgba(255, 245, 219, 0.8)' // 其他情况使用#FFF5DB阴影
+                        : (currentPeriod === '2006–2010'
+                            ? '0 0 25px 6px rgba(79, 79, 55, 0.9), 0 0 15px 4px rgba(79, 79, 55, 1)' // period-3中增强#4F4F37光晕
+                            : '0 0 10px 2px rgba(255, 245, 219, 0.6), 0 0 6px 1px rgba(255, 245, 219, 0.8)') // 其他情况使用#FFF5DB阴影
                   }}
                 >
                 </div>
@@ -357,6 +358,23 @@ export default function CommentTags({
                       transform: 'translate(-50%, -50%)',
                       backgroundColor: '#E70014',
                       zIndex: 65 // 在粉色圆之上
+                    }}
+                  />
+                )}
+
+                {/* period-3中普通标签的白色外轮廓 - 只保留16px，透明度30% */}
+                {currentPeriod === '2006–2010' && !isProtestTag && !inPassedZone && (
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      left: '0',
+                      top: '0',
+                      transform: 'translate(-50%, -50%)',
+                      border: '1px solid rgba(255, 255, 255, 0.3)', // 30%透明度白色
+                      backgroundColor: 'transparent',
+                      zIndex: 25
                     }}
                   />
                 )}
@@ -401,7 +419,8 @@ export default function CommentTags({
 
               {/* 评论文字 - 显示在点的上方 */}
               {/* 在passed区域内的黑色artist点不显示评论 */}
-              {!(!isProtestTag && inPassedZone) && (
+              {/* period-3中抗议标签不显示文本框和连接线 */}
+              {!(!isProtestTag && inPassedZone) && !(isProtestTag && currentPeriod === '2006–2010') && (
                 <div
                   className={`absolute px-2 py-1 text-[7px] leading-tight whitespace-normal pointer-events-auto transition-opacity duration-500 ${
                     isProtestTag
@@ -430,11 +449,14 @@ export default function CommentTags({
                     }
                   }}
                 >
-                  {isProtestTag
-                    ? (protestTextIndexes[tag.id] !== undefined
-                        ? PROTEST_TEXTS[protestTextIndexes[tag.id]]
-                        : PROTEST_TEXTS[0]) // 默认使用第一个抗议文本
-                    : tag.content.thought
+                  {/* period-3中不显示抗议文本 */}
+                  {currentPeriod === '2006–2010' && isProtestTag
+                    ? '' // period-3中抗议标签不显示文本
+                    : isProtestTag
+                      ? (protestTextIndexes[tag.id] !== undefined
+                          ? PROTEST_TEXTS[protestTextIndexes[tag.id]]
+                          : PROTEST_TEXTS[0]) // 默认使用第一个抗议文本
+                      : tag.content.thought
                   }
 
                 {/* 从评论框底部向下延伸的连接线 */}

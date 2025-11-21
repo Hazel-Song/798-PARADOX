@@ -203,56 +203,135 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
 
           ctx.restore();
         } else if (circle.evaluationResult === 'passed') {
-          // passed状态：30%透明度#FF8126色底 + 边框1px #FF8126色 + 内部#FF8126色斜线填充(100%透明度)
           ctx.save();
 
-          // 绘制30%透明度#FF8126色底色
-          ctx.globalAlpha = 0.3;
-          ctx.fillStyle = '#FF8126';
-          ctx.beginPath();
-          ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
-          ctx.fill();
-
-          // 绘制外轮廓
-          ctx.globalAlpha = 1.0;
-          ctx.strokeStyle = '#FF8126';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
-          ctx.stroke();
-
-          // 绘制斜线填充 (100%透明度)
-          ctx.globalAlpha = 1.0;
-          ctx.strokeStyle = '#FF8126';
-          ctx.lineWidth = 1;
-
-          // 创建圆形裁剪区域
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(circle.centerX, circle.centerY, currentRadius - 5, 0, 2 * Math.PI);
-          ctx.clip();
-
-          // 绘制斜线（45度角）
-          const lineSpacing = 8;
-          const minX = circle.centerX - currentRadius;
-          const maxX = circle.centerX + currentRadius;
-          const minY = circle.centerY - currentRadius;
-          const maxY = circle.centerY + currentRadius;
-
-          for (let offset = -currentRadius * 2; offset < currentRadius * 2; offset += lineSpacing) {
+          // period-3 (2006-2010): 30%透明度#FF8126色底 + 渐变点阵 + 1px实线轮廓
+          if (currentPeriodId === 'period-3') {
+            // 绘制30%透明度#FF8126色底色（与period-2一致）
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#FF8126';
             ctx.beginPath();
-            ctx.moveTo(minX, minY + offset);
-            ctx.lineTo(maxX, maxY + offset);
+            ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // 绘制1px实线轮廓
+            ctx.globalAlpha = 1.0;
+            ctx.strokeStyle = '#FF8126';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
             ctx.stroke();
+
+            // 绘制渐变点阵填充 - 从圆心向外: 粉色 → #FF3E33 → #FF8126
+            ctx.globalAlpha = 1.0;
+            const dotSize = 2; // 直径4px，半径2px
+            const spacing = 6;
+
+            const minX = circle.centerX - currentRadius;
+            const maxX = circle.centerX + currentRadius;
+            const minY = circle.centerY - currentRadius;
+            const maxY = circle.centerY + currentRadius;
+
+            for (let x = minX; x <= maxX; x += spacing) {
+              for (let y = minY; y <= maxY; y += spacing) {
+                // 斜向偏移
+                const offsetX = x + ((Math.floor((y - minY) / spacing) % 2) * spacing / 2);
+                const distanceFromCenter = Math.sqrt(
+                  Math.pow(offsetX - circle.centerX, 2) + Math.pow(y - circle.centerY, 2)
+                );
+
+                if (distanceFromCenter <= currentRadius - 5) {
+                  // 计算渐变颜色：粉色(0) → #FF3E33(0.5) → #FF8126(1)
+                  // 粉色 #F328A5 = rgb(243, 40, 165)
+                  const ratio = distanceFromCenter / (currentRadius - 5);
+                  let r, g, b;
+
+                  if (ratio < 0.5) {
+                    // 粉色 → #FF3E33
+                    const t = ratio / 0.5;
+                    r = Math.round(243 + (255 - 243) * t);
+                    g = Math.round(40 + (62 - 40) * t);
+                    b = Math.round(165 + (51 - 165) * t);
+                  } else {
+                    // #FF3E33 → #FF8126
+                    const t = (ratio - 0.5) / 0.5;
+                    r = 255;
+                    g = Math.round(62 + (129 - 62) * t);
+                    b = Math.round(51 + (38 - 51) * t);
+                  }
+
+                  ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                  ctx.beginPath();
+                  ctx.arc(offsetX, y, dotSize, 0, 2 * Math.PI);
+                  ctx.fill();
+                }
+              }
+            }
+
+            // 绘制粉色圆心点
+            ctx.fillStyle = '#F328A5';
+            ctx.beginPath();
+            ctx.arc(circle.centerX, circle.centerY, 2, 0, 2 * Math.PI);
+            ctx.fill();
+          } else {
+            // period-2 及更早: 30%透明度#FF8126色底 + 1px实线轮廓 + 内部渐变点阵填充
+
+            // 绘制30%透明度#FF8126色底色
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#FF8126';
+            ctx.beginPath();
+            ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // 绘制外轮廓 - 1px实线
+            ctx.globalAlpha = 1.0;
+            ctx.strokeStyle = '#FF8126';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            // 绘制渐变点阵填充 (100%透明度) - 从圆心#FF3E33到边缘#FF8126
+            ctx.globalAlpha = 1.0;
+            const dotSize = 2; // 直径4px，半径2px
+            const spacing = 6; // 减小间距
+
+            const minX = circle.centerX - currentRadius;
+            const maxX = circle.centerX + currentRadius;
+            const minY = circle.centerY - currentRadius;
+            const maxY = circle.centerY + currentRadius;
+
+            for (let x = minX; x <= maxX; x += spacing) {
+              for (let y = minY; y <= maxY; y += spacing) {
+                // 斜向偏移
+                const offsetX = x + ((Math.floor((y - minY) / spacing) % 2) * spacing / 2);
+                const distanceFromCenter = Math.sqrt(
+                  Math.pow(offsetX - circle.centerX, 2) + Math.pow(y - circle.centerY, 2)
+                );
+
+                if (distanceFromCenter <= currentRadius - 5) {
+                  // 计算渐变颜色：从圆心#FF3E33到边缘#FF8126
+                  const ratio = distanceFromCenter / (currentRadius - 5);
+                  // #FF3E33 = rgb(255, 62, 51)
+                  // #FF8126 = rgb(255, 129, 38)
+                  const r = 255;
+                  const g = Math.round(62 + (129 - 62) * ratio);
+                  const b = Math.round(51 + (38 - 51) * ratio);
+
+                  ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                  ctx.beginPath();
+                  ctx.arc(offsetX, y, dotSize, 0, 2 * Math.PI);
+                  ctx.fill();
+                }
+              }
+            }
+
+            // 绘制#FF3E33色圆心点
+            ctx.fillStyle = '#FF3E33';
+            ctx.beginPath();
+            ctx.arc(circle.centerX, circle.centerY, 2, 0, 2 * Math.PI);
+            ctx.fill();
           }
-
-          ctx.restore();
-
-          // 绘制#FF8126色圆心点
-          ctx.fillStyle = '#FF8126';
-          ctx.beginPath();
-          ctx.arc(circle.centerX, circle.centerY, 2, 0, 2 * Math.PI);
-          ctx.fill();
 
           ctx.restore();
         } else {
@@ -317,13 +396,13 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [circles, gridSystem]);
+  }, [circles, gridSystem, currentPeriodId]); // 添加currentPeriodId依赖，确保时期切换时重新渲染
 
   return (
     <canvas
       ref={canvasRef}
-      className={`absolute inset-0 pointer-events-none ${className}`}
-      style={{ zIndex: 25 }} // 在网格之上，在角色之下
+      className="absolute inset-0 pointer-events-none"
+      style={{ zIndex: 20 }} // 降低z-index，确保在CommentTags (z-70) 下方
     />
   );
 });

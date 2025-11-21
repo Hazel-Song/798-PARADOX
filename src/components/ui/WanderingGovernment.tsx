@@ -438,16 +438,18 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
       }
 
       overlayCircles.forEach(circle => {
-        // 绘制覆盖圆形 - #FF8126色，1.5px外轮廓，无填充
+        // 绘制覆盖圆形 - #FF8126色，1px虚线外轮廓，无填充
         ctx.save();
         ctx.strokeStyle = '#FF8126';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1;
         ctx.globalAlpha = 1.0; // 提至100%透明度
+        ctx.setLineDash([4, 4]); // 虚线样式
 
         ctx.beginPath();
         ctx.arc(circle.centerX, circle.centerY, circle.radius, 0, 2 * Math.PI);
         ctx.stroke();
 
+        ctx.setLineDash([]); // 重置虚线样式
         ctx.restore();
       });
 

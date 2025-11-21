@@ -1262,7 +1262,7 @@ const MapLayout = () => {
                   gridSystem={gridSystemRef.current}
                   studioAreas={studioAreas}
                   commentTags={commentTags}
-                  className="absolute inset-0 z-25"
+                  className="absolute inset-0 z-20"
                   allowNewCircles={currentPeriodId === 'period-1' || currentPeriodId === 'period-2'} // 1995-2002和2002-2006都允许生成新圆形
                   currentPeriodId={currentPeriodId} // 传递当前时期ID用于调整圆形大小
                 />
