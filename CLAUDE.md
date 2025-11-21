@@ -6,7 +6,7 @@ This is an interactive, AI-powered visualization system documenting the history 
 
 **Project Type:** Full-stack Next.js React Application with TypeScript
 **Version:** 0.1.0
-**Status:** Active Development (Last commit: Nov 20, 2025 - Pink ripple animations for protest tags)
+**Status:** Active Development (Last commit: Nov 21, 2025 - Fix government role visibility in period-3)
 
 ## Technology Stack
 
@@ -233,6 +233,9 @@ REPLICATE_API_TOKEN=your_replicate_token_here
 
 ## Recent Development History
 
+- **4a3c374** (Nov 21) - Fix government role visibility in period-3 auto-transition
+- **2920d4d** (Nov 21) - Fix government typewriter animation and snapshot restoration system
+- **c78c714** (Nov 21) - Implement automatic period transitions and comprehensive documentation
 - **4120f5c** (Nov 20) - Implement pink ripple animations for protest tags
 - **f95bb62** - Fix infinite loop errors in React components
 - **d200218** - Implement artist movement restrictions for government zones
@@ -292,6 +295,7 @@ Three useEffect hooks monitor different metrics and trigger automatic period tra
      - Saves current period snapshot
      - Sets `currentPeriodId` to `'period-3'`
      - Unlocks period-3 (`setMaxUnlockedPeriodIndex(2)`)
+     - **Activates government role** (`setIsGovernmentActive(true)`)
    - Console log: `🚀 Auto-transitioning from period2 to period3! Public Opinion Heat: X`
 
 3. **Period 3 → Period 4** (Public Opinion Heat threshold)
@@ -301,7 +305,18 @@ Three useEffect hooks monitor different metrics and trigger automatic period tra
      - Saves current period snapshot
      - Sets `currentPeriodId` to `'period-4'`
      - Unlocks period-4 (`setMaxUnlockedPeriodIndex(3)`)
+     - **Activates government role** (`setIsGovernmentActive(true)`)
    - Console log: `🚀 Auto-transitioning from period3 to period4! Public Opinion Heat: X`
+
+### Important: Period Name Character Encoding
+
+**CRITICAL**: The period `years` field in `timelineData` uses **en-dash** (`–`, U+2013) not hyphen (`-`, U+002D):
+- Period 1: `'1995–2002'`
+- Period 2: `'2002-2006'` (hyphen - exception)
+- Period 3: `'2006–2010'` (en-dash)
+- Period 4: `'2010–2017'` (en-dash)
+
+When comparing period names in components (like `WanderingGovernment.shouldShow`), ensure the correct character is used.
 
 ## Key Features & Systems
 
@@ -331,6 +346,9 @@ Three useEffect hooks monitor different metrics and trigger automatic period tra
 - Public opinion heat tracking
 - User-influenced input system
 - Animation feedback for actions
+- **Typewriter animation** cycles through government input principles during evaluation
+- **Reset method** (`reset()`) clears all internal state on snapshot restore
+- **Period visibility**: Active in period-2 (`2002-2006`) and period-3 (`2006–2010`)
 
 ### 5. Comment Tag System
 - Floating tags with sight/thought content
@@ -350,6 +368,9 @@ Three useEffect hooks monitor different metrics and trigger automatic period tra
 - Backward travel requires confirmation
 - Restores all period data on travel
 - Forward progression auto-saves
+- **Extended snapshot data**: Includes `publicOpinionHeat`, `isGovernmentActive`, `governmentInputs`, `evaluationResult`
+- **Government reset on restore**: Calls `wanderingGovernmentRef.current.reset()` to clear evaluation progress
+- **Pink ripple cleanup**: Clears `demolishedProtestPositions` on snapshot restore
 
 ### 8. Responsive Layout
 - 2/3 left panel for map
