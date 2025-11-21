@@ -458,6 +458,42 @@ const MapLayout = () => {
     }
   }, [commentTags.length, currentPeriodId]);
 
+  // 监控舆论热度，自动从period2切换到period3 (publicOpinionHeat ≥ 20)
+  useEffect(() => {
+    console.log(`🔍 Checking period transition - publicOpinionHeat: ${publicOpinionHeat}, currentPeriodId: ${currentPeriodId}`);
+
+    if (publicOpinionHeat >= 20 && currentPeriodId === 'period-2') {
+      console.log(`🚀 Auto-transitioning from period2 to period3! Public Opinion Heat: ${publicOpinionHeat}`);
+
+      // 保存当前时期的状态快照
+      saveCurrentPeriodSnapshot();
+
+      // 切换到period3（2006-2010）
+      setCurrentPeriodId('period-3');
+      // 解锁period3
+      setMaxUnlockedPeriodIndex(2);
+
+      console.log('🎭 Entering period3 (2006-2010): Illusion phase');
+    }
+  }, [publicOpinionHeat, currentPeriodId]);
+
+  // 监控舆论热度，自动从period3切换到period4 (publicOpinionHeat ≥ 50)
+  useEffect(() => {
+    if (publicOpinionHeat >= 50 && currentPeriodId === 'period-3') {
+      console.log(`🚀 Auto-transitioning from period3 to period4! Public Opinion Heat: ${publicOpinionHeat}`);
+
+      // 保存当前时期的状态快照
+      saveCurrentPeriodSnapshot();
+
+      // 切换到period4（2010-2017）
+      setCurrentPeriodId('period-4');
+      // 解锁period4
+      setMaxUnlockedPeriodIndex(3);
+
+      console.log('🏁 Entering period4 (2010-2017): Migration and Circulation phase');
+    }
+  }, [publicOpinionHeat, currentPeriodId]);
+
   // 定期清理过期的临时标签
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
