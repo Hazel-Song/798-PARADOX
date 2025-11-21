@@ -137,6 +137,7 @@ const MapLayout = () => {
   const [periodSnapshots, setPeriodSnapshots] = useState<Map<string, PeriodSnapshot>>(new Map());
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [pendingPeriodId, setPendingPeriodId] = useState<string>('');
+  const [confirmDialogMessage, setConfirmDialogMessage] = useState<string>('');
 
   // 多个艺术家状态 - 只有初始艺术家
   const [artists, setArtists] = useState<Array<{ id: string; ref: React.RefObject<WanderingCharacterRef> }>>([]);
@@ -851,7 +852,7 @@ const MapLayout = () => {
       };
     });
 
-    // 获取工作室圆形数据
+    // 获取工作室圆形数据（包含评估结果）
     const studioCircles = studioCirclesRef.current?.getCircles() || [];
 
     // 获取网格标签计数
@@ -872,11 +873,15 @@ const MapLayout = () => {
         centerY: circle.centerY,
         radius: circle.radius,
         gridKey: circle.gridKey,
-        createdAt: circle.createdAt
+        createdAt: circle.createdAt,
+        evaluationResult: circle.evaluationResult // 保存评估结果
       })),
       artistPositions,
       areaVitality: commentTags.length,
-      gridTagCounts
+      gridTagCounts,
+      publicOpinionHeat: publicOpinionHeat, // 保存舆论热度
+      isGovernmentActive: isGovernmentActive, // 保存政府激活状态
+      governmentInputs: [...governmentInputs] // 保存政府输入
     };
 
     setPeriodSnapshots(prev => {
@@ -903,19 +908,52 @@ const MapLayout = () => {
     // 恢复工作室区域
     setStudioAreas(new Set(snapshot.studioAreas));
 
-    // 恢复工作室圆形
+    // 恢复工作室圆形（包含评估结果）
     if (studioCirclesRef.current) {
       const restoredCircles: StudioCircle[] = snapshot.studioCircles.map(circle => ({
         ...circle,
-        isAnimating: false // 恢复的圆形不需要动画
+        isAnimating: false, // 恢复的圆形不需要动画
+        evaluationResult: circle.evaluationResult // 恢复评估结果
       }));
       studioCirclesRef.current.setCircles(restoredCircles);
     }
 
-    // 恢复网格标签计数（需要GridSystem支持）
-    // TODO: 如果GridSystem需要恢复标签计数，在这里添加逻辑
+    // 恢复网格标签计数
+    if (gridSystemRef.current && snapshot.gridTagCounts) {
+      const tagCountsMap = new Map<string, number>();
+      Object.entries(snapshot.gridTagCounts).forEach(([key, count]) => {
+        tagCountsMap.set(key, count);
+      });
+      gridSystemRef.current.restoreTagCounts(tagCountsMap);
+      console.log('✅ Grid tag counts restored:', snapshot.gridTagCounts);
+    }
 
-    console.log('✅ Period snapshot restored');
+    // 恢复舆论热度
+    setPublicOpinionHeat(snapshot.publicOpinionHeat);
+
+    // 恢复政府激活状态
+    setIsGovernmentActive(snapshot.isGovernmentActive);
+
+    // 恢复政府输入
+    setGovernmentInputs(snapshot.governmentInputs);
+
+    // 重置政府角色内部状态（清除评估进度、已评估列表等）
+    if (wanderingGovernmentRef.current) {
+      wanderingGovernmentRef.current.reset();
+      console.log('🔄 Government role reset after snapshot restore');
+    }
+
+    // 恢复UI checkedItems
+    setCheckedItems(prev => ({
+      ...prev,
+      government: snapshot.isGovernmentActive
+    }));
+
+    // 清空抗议标签粉色涟漪动画位置（快照中不保存这个状态）
+    setDemolishedProtestPositions({});
+    console.log('🧹 Cleared demolished protest positions');
+
+    console.log('✅ Period snapshot restored completely');
   };
 
   // 清空当前时期的所有动态数据
@@ -956,8 +994,16 @@ const MapLayout = () => {
 
     // 如果是向前跳转（回到过去的时期），并且当前时期是period-2或更晚
     if (targetPeriodIndex < currentPeriodIndex && currentPeriodIndex >= 1) {
+      // 生成动态对话框文本
+      const currentPeriod = timelineData.periods[currentPeriodIndex];
+      const targetPeriod = timelineData.periods[targetPeriodIndex];
+      const nextPeriod = timelineData.periods[targetPeriodIndex + 1];
+
+      const message = `系统将清空${currentPeriod.years}阶段的全部历史，恢复到${targetPeriod.years}阶段结束时的状态，并跳转到${nextPeriod?.years || '未知'}阶段。是否确认回退？`;
+
       // 显示确认弹窗
       setPendingPeriodId(periodId);
+      setConfirmDialogMessage(message);
       setIsConfirmDialogOpen(true);
       console.log('⚠️ Backward time travel detected, showing confirmation dialog');
       return;
@@ -971,6 +1017,20 @@ const MapLayout = () => {
   const performPeriodChange = (periodId: string) => {
     console.log(`✅ Performing period change to: ${periodId}`);
     setCurrentPeriodId(periodId);
+
+    // 根据时期自动激活政府角色（period-2及以后需要政府）
+    const periodIndex = timelineData.periods.findIndex(p => p.id === periodId);
+    if (periodIndex >= 1) {
+      // period-2, period-3, period-4 都需要政府角色
+      console.log('🏛️ Auto-activating government for period:', periodId);
+      setIsGovernmentActive(true);
+      setCheckedItems(prev => ({ ...prev, government: true }));
+    } else {
+      // period-1 不需要政府角色
+      console.log('👤 Deactivating government for period:', periodId);
+      setIsGovernmentActive(false);
+      setCheckedItems(prev => ({ ...prev, government: false }));
+    }
 
     // 时期切换时，强制更新所有艺术家的canvas尺寸
     setTimeout(() => {
@@ -1003,6 +1063,11 @@ const MapLayout = () => {
     console.log('✅ User confirmed backward time travel');
     setIsConfirmDialogOpen(false);
 
+    const targetIndex = timelineData.periods.findIndex(p => p.id === pendingPeriodId);
+    const nextPeriod = timelineData.periods[targetIndex + 1];
+
+    console.log(`🔄 Restoring snapshot from ${pendingPeriodId}, UI will display at ${nextPeriod?.id}`);
+
     // 清空当前时期（period-2或更晚）的数据
     clearCurrentPeriodData();
 
@@ -1011,8 +1076,15 @@ const MapLayout = () => {
       restorePeriodSnapshot(pendingPeriodId);
     }
 
-    // 执行时期切换
-    performPeriodChange(pendingPeriodId);
+    // UI切换到目标时期的下一个时期
+    // 例如：点击period-1 → 恢复period-1快照，UI显示period-2
+    //       点击period-2 → 恢复period-2快照，UI显示period-3
+    if (nextPeriod) {
+      performPeriodChange(nextPeriod.id);
+      console.log(`✅ Snapshot restored from ${pendingPeriodId}, UI now at ${nextPeriod.id}`);
+    } else {
+      console.warn('⚠️ No next period found for', pendingPeriodId);
+    }
   };
 
   // 取消回退
@@ -1052,7 +1124,7 @@ const MapLayout = () => {
       <ConfirmDialog
         isOpen={isConfirmDialogOpen}
         title="时期回退确认"
-        message="系统将清空2002-2006阶段的全部历史，是否确认回退到1995-2002阶段？"
+        message={confirmDialogMessage}
         confirmText="确认回退"
         cancelText="取消"
         onConfirm={handleConfirmBackwardTravel}

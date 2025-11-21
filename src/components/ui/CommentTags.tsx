@@ -225,6 +225,35 @@ export default function CommentTags({
     setTriggeredAnimations(new Set());
   }, [currentPeriod]);
 
+  // 清理不存在的标签对应的粉色动画位置
+  useEffect(() => {
+    const existingTagIds = new Set(tags.map(tag => tag.id));
+
+    // 清理localPinkPositions中不存在的标签
+    setLocalPinkPositions(prev => {
+      const filtered: Record<string, { x: number; y: number }> = {};
+      Object.entries(prev).forEach(([tagId, position]) => {
+        if (existingTagIds.has(tagId)) {
+          filtered[tagId] = position;
+        } else {
+          console.log('🧹 Removing pink animation for non-existent tag:', tagId);
+        }
+      });
+      return filtered;
+    });
+
+    // 清理triggeredAnimations中不存在的标签
+    setTriggeredAnimations(prev => {
+      const filtered = new Set<string>();
+      prev.forEach(tagId => {
+        if (existingTagIds.has(tagId)) {
+          filtered.add(tagId);
+        }
+      });
+      return filtered;
+    });
+  }, [tags]);
+
   return (
     <>
       {/* CSS动画样式 */}

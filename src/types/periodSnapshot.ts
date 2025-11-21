@@ -10,6 +10,9 @@ export interface PeriodSnapshot {
   artistPositions: ArtistPosition[]; // 艺术家位置
   areaVitality: number; // 区域活力值
   gridTagCounts: Record<string, number>; // 网格标签计数
+  publicOpinionHeat: number; // 舆论热度值
+  isGovernmentActive: boolean; // 政府角色是否激活
+  governmentInputs: string[]; // 政府输入文本列表
 }
 
 // 工作室圆形数据
@@ -20,6 +23,7 @@ export interface StudioCircleData {
   radius: number;
   gridKey: string;
   createdAt: number;
+  evaluationResult?: 'demolish' | 'passed'; // 政府评估结果
 }
 
 // 艺术家位置数据

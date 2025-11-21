@@ -366,4 +366,10 @@ export class GridSystem {
   public getAllTagCounts(): Map<string, number> {
     return new Map(this.tagCounts);
   }
+
+  // 恢复标签计数（用于快照恢复）
+  public restoreTagCounts(counts: Map<string, number>): void {
+    this.tagCounts = new Map(counts);
+    console.log('🔄 GridSystem: Tag counts restored');
+  }
 }

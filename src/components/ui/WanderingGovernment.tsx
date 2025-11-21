@@ -21,6 +21,7 @@ export interface WanderingGovernmentRef {
   isPaused: () => boolean;
   pause: () => void;
   resume: () => void;
+  reset: () => void; // 重置政府角色状态
 }
 
 interface GovernmentEvaluation {
@@ -120,7 +121,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
       return;
     }
 
-    const currentText = governmentInputsRef.current[typewriterTextIndex];
+    const currentText = governmentInputsRef.current[typewriterTextIndex % governmentInputsRef.current.length];
     if (!currentText) return; // 安全检查
 
     const typingSpeed = 33; // 打字速度 (ms) - 从100ms减少到33ms，3倍加速
@@ -128,34 +129,40 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
     const pauseAfterTyping = 500; // 打字完成后暂停时间 (ms) - 从1500ms减少到500ms
     const pauseAfterDeleting = 200; // 删除完成后暂停时间 (ms) - 从500ms减少到200ms
 
-    const timer = setTimeout(() => {
-      if (isTyping) {
-        // 正在打字
-        if (typewriterCharIndex < currentText.length) {
+    let timeoutId: NodeJS.Timeout;
+
+    if (isTyping) {
+      // 正在打字
+      if (typewriterCharIndex < currentText.length) {
+        timeoutId = setTimeout(() => {
           setDisplayedText(currentText.substring(0, typewriterCharIndex + 1));
           setTypewriterCharIndex(prev => prev + 1);
-        } else {
-          // 打字完成，暂停后开始删除
-          setTimeout(() => {
-            setIsTyping(false);
-          }, pauseAfterTyping);
-        }
+        }, typingSpeed);
       } else {
-        // 正在删除
-        if (typewriterCharIndex > 0) {
+        // 打字完成，暂停后开始删除
+        timeoutId = setTimeout(() => {
+          setIsTyping(false);
+        }, pauseAfterTyping);
+      }
+    } else {
+      // 正在删除
+      if (typewriterCharIndex > 0) {
+        timeoutId = setTimeout(() => {
           setDisplayedText(currentText.substring(0, typewriterCharIndex - 1));
           setTypewriterCharIndex(prev => prev - 1);
-        } else {
-          // 删除完成，暂停后切换到下一个文本
-          setTimeout(() => {
-            setTypewriterTextIndex((prev) => (prev + 1) % governmentInputsRef.current.length);
-            setIsTyping(true);
-          }, pauseAfterDeleting);
-        }
+        }, deletingSpeed);
+      } else {
+        // 删除完成，暂停后切换到下一个文本
+        timeoutId = setTimeout(() => {
+          setTypewriterTextIndex((prev) => (prev + 1) % Math.max(1, governmentInputsRef.current.length));
+          setIsTyping(true);
+        }, pauseAfterDeleting);
       }
-    }, isTyping ? typingSpeed : deletingSpeed);
+    }
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [currentEvaluation?.status, typewriterTextIndex, typewriterCharIndex, isTyping]);
 
   // 重置打字机状态当评估状态改变时
@@ -176,7 +183,25 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
     getCurrentPosition: () => position,
     isPaused: () => isPaused,
     pause: () => setIsPaused(true),
-    resume: () => setIsPaused(false)
+    resume: () => setIsPaused(false),
+    reset: () => {
+      console.log('🔄 WanderingGovernment: Resetting all internal state');
+      setCurrentEvaluation(null);
+      setEvaluatedCircleIds(new Set());
+      setNextResult('demolish');
+      setOverlayCircles([]);
+      setPermanentComments([]);
+      setPosition({ x: 100, y: 100 });
+      setIsPaused(false);
+      setTrajectory([]);
+      // 清理打字机状态
+      setTypewriterTextIndex(0);
+      setTypewriterCharIndex(0);
+      setIsTyping(true);
+      setDisplayedText('');
+      // 清理扩展圆状态
+      expandingCircleRadiusRef.current = 0;
+    }
   }));
 
   // 寻找下一个需要评估的工作室圆形
