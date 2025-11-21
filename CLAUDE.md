@@ -233,6 +233,11 @@ REPLICATE_API_TOKEN=your_replicate_token_here
 
 ## Recent Development History
 
+- **8692be3** (Nov 21) - Add wandering pink dots system and improve period-3 mechanics
+  - Implement wandering pink dots in period-3 (spawn on heat increase, Brownian motion)
+  - Fix pink dots regenerating bug on time rewind
+  - Fix pre-period-3 tag styling persistence after rewind
+  - Change artist evaluation interval to 10s for period-3/4
 - **Current** (Nov 21) - Period-3 government evaluation of commentTags, pre-period-3 tag styling, REGULATOR label
 - **3698ffc** (Nov 21) - Enhance period-2 and period-3 visual styles for passed circles and comment tags
 - **4a3c374** (Nov 21) - Fix government role visibility in period-3 auto-transition
@@ -338,7 +343,9 @@ When comparing period names in components (like `WanderingGovernment.shouldShow`
 ### 3. Artist Agent System
 - Autonomous movement with trajectory planning
 - Personality-driven evaluation generation via LLM
-- Periodic evaluation triggers (every 5 seconds default)
+- **Period-based evaluation intervals**:
+  - Periods 1-2: 5 seconds per evaluation
+  - Periods 3-4: 10 seconds per evaluation (slower pace reflecting commercialization)
 - Movement speed and direction control
 - Restricted zone avoidance
 
@@ -373,6 +380,34 @@ When comparing period names in components (like `WanderingGovernment.shouldShow`
   - Government-evaluated tags: Black fill (#000) + orange glow (#FF550F)
   - Protest tags: Expanded circle (50-100px, 1px white border, 20% white fill)
 - **Z-index layering**: Normal tags (default), passed zone tags (z-index: 40), protest tags (z-index: 60)
+
+### 5a. Wandering Pink Dots System (Period-3 only)
+- **Activation**: Only active in period-3 (`2006–2010`)
+- **Spawning mechanism**:
+  - Spawn 2-5 dots per `publicOpinionHeat` increase
+  - Dots spawn from random map edges (top, right, bottom, left)
+  - Target random existing protest tags
+- **Movement behavior**:
+  - Phase 1: Linear movement toward target protest tag center at 2px/frame
+  - Phase 2: Switch to Brownian motion when within 5px of center
+  - Boundary: Confined within protest tag's expanded radius circle (50-100px)
+  - Collision detection: Reflect toward center when hitting boundary
+- **Visual style**:
+  - Size: 6px diameter circles
+  - Color: #F328A5 (pink)
+  - Box shadow: 0 0 4px rgba(243, 40, 165, 0.8)
+  - Z-index: 56 (between protest tags and particles)
+- **Animation**: 60fps with `requestAnimationFrame`
+- **Cleanup**:
+  - Automatically cleared when leaving period-3
+  - Cleared on time travel/snapshot restore via `clearWanderingDots()` method
+  - Dots associated with deleted protest tags auto-removed
+- **Implementation**:
+  - `CommentTags.tsx` with `forwardRef` and `useImperativeHandle`
+  - State managed with `useState<WanderingPinkDot[]>`
+  - Heat tracking with `useRef<number>` to avoid re-renders
+- **Bug fixes**:
+  - Prevented regeneration on time rewind by syncing `prevHeatRef.current = publicOpinionHeat`
 
 ### 6. Studio Emergence Mechanic
 - Tracks tags per grid cell
@@ -510,6 +545,18 @@ console.log('Debug info available via MapLayout state')
 ### Government Not Moving
 - **Symptom**: Government agent static
 - **Solution**: Check isGovernmentActive state, verify period is 2 or later
+
+### Pre-Period-3 Tags Losing Styling After Rewind
+- **Symptom**: Tags created before period-3 lose their #C2B89D fill + #857D72 glow styling after rewinding to period-2 and forwarding back to period-3
+- **Root Cause**: Tag marking (`isPrePeriod3Tag`) happened after snapshot save during auto-transition
+- **Solution**:
+  1. Mark tags before snapshot save with 100ms delay (MapLayout.tsx lines 470-482)
+  2. Add fallback marking logic in manual period change handler (MapLayout.tsx lines 1066-1075)
+
+### Pink Dots Regenerating on Time Rewind
+- **Symptom**: Wandering pink dots regenerate with previous quantity when rewinding from period-3 to period-2
+- **Root Cause**: `prevHeatRef.current` was reset to 0, but `publicOpinionHeat` restored to snapshot value, creating false positive difference
+- **Solution**: Sync ref to current heat value instead of 0 when leaving period-3 (CommentTags.tsx line 246)
 
 ## File Naming Conventions
 
