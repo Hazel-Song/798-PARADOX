@@ -84,7 +84,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
   const animationRef = useRef<number>();
 
   // 只在2002-2006和2006-2010期间且被激活时显示
-  const shouldShow = isActive && (currentPeriod === '2002-2006' || currentPeriod === '2006-2010');
+  const shouldShow = isActive && (currentPeriod === '2002-2006' || currentPeriod === '2006–2010');
 
   // 监听时期变化，清理内部状态
   useEffect(() => {

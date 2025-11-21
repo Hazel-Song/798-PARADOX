@@ -469,10 +469,14 @@ const MapLayout = () => {
       // 保存当前时期的状态快照
       saveCurrentPeriodSnapshot();
 
-      // 切换到period3（2006-2010）
+      // 切换到period3（2006-2010）- 注意：不清除数据，保持黑色点等内容
       setCurrentPeriodId('period-3');
       // 解锁period3
       setMaxUnlockedPeriodIndex(2);
+
+      // 确保政府角色保持激活状态
+      setIsGovernmentActive(true);
+      setCheckedItems(prev => ({ ...prev, government: true }));
 
       console.log('🎭 Entering period3 (2006-2010): Illusion phase');
     }
@@ -486,10 +490,14 @@ const MapLayout = () => {
       // 保存当前时期的状态快照
       saveCurrentPeriodSnapshot();
 
-      // 切换到period4（2010-2017）
+      // 切换到period4（2010-2017）- 注意：不清除数据，保持黑色点等内容
       setCurrentPeriodId('period-4');
       // 解锁period4
       setMaxUnlockedPeriodIndex(3);
+
+      // 确保政府角色保持激活状态
+      setIsGovernmentActive(true);
+      setCheckedItems(prev => ({ ...prev, government: true }));
 
       console.log('🏁 Entering period4 (2010-2017): Migration and Circulation phase');
     }
