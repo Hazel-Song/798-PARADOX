@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
 
 interface Particle {
   id: string;
@@ -10,6 +10,16 @@ interface Particle {
   vy: number;
   angle: number;
   speed: number;
+}
+
+// 游走粉色圆点接口
+interface WanderingPinkDot {
+  id: string;
+  position: { x: number; y: number };
+  targetTagId: string;
+  targetCenter: { x: number; y: number };
+  boundaryRadius: number;
+  state: 'moving' | 'wandering';
 }
 
 export interface CommentTag {
@@ -42,6 +52,14 @@ interface CommentTagsProps {
   currentPeriod?: string; // 当前时期
   passedZones?: PassedZone[]; // passed圆形区域列表
   demolishedProtestPositions?: Record<string, { x: number; y: number }>; // 被demolish的抗议标签位置
+  publicOpinionHeat?: number; // 舆论热度值
+  canvasWidth?: number; // 地图宽度
+  canvasHeight?: number; // 地图高度
+}
+
+// ref接口
+export interface CommentTagsRef {
+  clearWanderingDots: () => void;
 }
 
 // 抗议文本预设
@@ -53,14 +71,22 @@ const PROTEST_TEXTS = [
   "Preservation over profit, art over authority"
 ];
 
-export default function CommentTags({
+export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags({
   tags,
   currentPeriod = '',
   passedZones = [],
-  demolishedProtestPositions = {}
-}: CommentTagsProps) {
+  demolishedProtestPositions = {},
+  publicOpinionHeat = 0,
+  canvasWidth = 800,
+  canvasHeight = 600
+}, ref) {
   const [visibleTags, setVisibleTags] = useState<CommentTag[]>([]);
   const [hiddenTags, setHiddenTags] = useState<Set<string>>(new Set());
+
+  // 游走粉色圆点状态
+  const [wanderingPinkDots, setWanderingPinkDots] = useState<WanderingPinkDot[]>([]);
+  const prevHeatRef = useRef<number>(0);
+  const animationFrameRef = useRef<number>();
 
   // 为每个抗议标签分配固定的抗议文本索引
   const [protestTextIndexes, setProtestTextIndexes] = useState<Record<string, number>>({});
@@ -81,6 +107,171 @@ export default function CommentTags({
 
   // 合并父组件传来的位置和本地检测的位置
   const allPinkPositions = { ...demolishedProtestPositions, ...localPinkPositions };
+
+  // 暴露ref方法
+  useImperativeHandle(ref, () => ({
+    clearWanderingDots: () => {
+      console.log('🧹 CommentTags: Clearing all wandering pink dots');
+      setWanderingPinkDots([]);
+      prevHeatRef.current = 0;
+    }
+  }));
+
+  // 从地图边缘生成随机位置
+  const generateEdgePosition = (): { x: number; y: number } => {
+    const edge = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
+    switch (edge) {
+      case 0: return { x: Math.random() * canvasWidth, y: 0 }; // top
+      case 1: return { x: canvasWidth, y: Math.random() * canvasHeight }; // right
+      case 2: return { x: Math.random() * canvasWidth, y: canvasHeight }; // bottom
+      case 3: return { x: 0, y: Math.random() * canvasHeight }; // left
+      default: return { x: 0, y: 0 };
+    }
+  };
+
+  // 监听publicOpinionHeat变化，在period-3中生成粉色圆点
+  useEffect(() => {
+    if (currentPeriod !== '2006–2010') {
+      prevHeatRef.current = publicOpinionHeat;
+      return;
+    }
+
+    const heatIncrease = publicOpinionHeat - prevHeatRef.current;
+    if (heatIncrease > 0) {
+      console.log(`🔥 Public Opinion Heat increased by ${heatIncrease}, spawning pink dots`);
+
+      // 找到所有protest tags及其配置
+      const protestTags = tags.filter(tag => tag.isProtestTag && period3Configs[tag.id]);
+
+      if (protestTags.length > 0) {
+        const newDots: WanderingPinkDot[] = [];
+
+        for (let i = 0; i < heatIncrease; i++) {
+          // 每次heat增加1，生成2-5个圆点
+          const dotCount = 2 + Math.floor(Math.random() * 4);
+
+          for (let j = 0; j < dotCount; j++) {
+            // 随机选择一个protest tag作为目标
+            const targetTag = protestTags[Math.floor(Math.random() * protestTags.length)];
+            const config = period3Configs[targetTag.id];
+
+            const newDot: WanderingPinkDot = {
+              id: `wandering-dot-${Date.now()}-${i}-${j}`,
+              position: generateEdgePosition(),
+              targetTagId: targetTag.id,
+              targetCenter: { x: targetTag.position.x, y: targetTag.position.y },
+              boundaryRadius: config.expandedRadius,
+              state: 'moving'
+            };
+
+            newDots.push(newDot);
+          }
+        }
+
+        console.log(`🩷 Created ${newDots.length} new wandering pink dots`);
+        setWanderingPinkDots(prev => [...prev, ...newDots]);
+      }
+    }
+
+    prevHeatRef.current = publicOpinionHeat;
+  }, [publicOpinionHeat, currentPeriod, tags, period3Configs, canvasWidth, canvasHeight]);
+
+  // 粉色圆点动画循环
+  useEffect(() => {
+    if (currentPeriod !== '2006–2010' || wanderingPinkDots.length === 0) {
+      return;
+    }
+
+    const moveSpeed = 2; // 移动速度
+    const brownianStrength = 1.5; // 布朗运动强度
+
+    const animate = () => {
+      setWanderingPinkDots(prevDots => {
+        return prevDots.map(dot => {
+          if (dot.state === 'moving') {
+            // 向目标圆心移动
+            const dx = dot.targetCenter.x - dot.position.x;
+            const dy = dot.targetCenter.y - dot.position.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < 5) {
+              // 到达目标，切换为游走状态
+              return { ...dot, state: 'wandering' as const };
+            }
+
+            // 继续移动
+            const moveX = (dx / distance) * moveSpeed;
+            const moveY = (dy / distance) * moveSpeed;
+            return {
+              ...dot,
+              position: {
+                x: dot.position.x + moveX,
+                y: dot.position.y + moveY
+              }
+            };
+          } else {
+            // 布朗运动 - 随机游走
+            const brownianX = (Math.random() - 0.5) * brownianStrength * 2;
+            const brownianY = (Math.random() - 0.5) * brownianStrength * 2;
+
+            let newX = dot.position.x + brownianX;
+            let newY = dot.position.y + brownianY;
+
+            // 确保在边界内
+            const distFromCenter = Math.sqrt(
+              Math.pow(newX - dot.targetCenter.x, 2) +
+              Math.pow(newY - dot.targetCenter.y, 2)
+            );
+
+            if (distFromCenter > dot.boundaryRadius - 4) {
+              // 超出边界，向圆心方向反弹
+              const toCenter = {
+                x: dot.targetCenter.x - newX,
+                y: dot.targetCenter.y - newY
+              };
+              const toCenterDist = Math.sqrt(toCenter.x * toCenter.x + toCenter.y * toCenter.y);
+              newX += (toCenter.x / toCenterDist) * 3;
+              newY += (toCenter.y / toCenterDist) * 3;
+            }
+
+            return {
+              ...dot,
+              position: { x: newX, y: newY }
+            };
+          }
+        });
+      });
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [currentPeriod, wanderingPinkDots.length > 0]); // 只在有圆点时运行动画
+
+  // 清理不存在的protest tag对应的圆点
+  useEffect(() => {
+    const existingProtestTagIds = new Set(
+      tags.filter(tag => tag.isProtestTag).map(tag => tag.id)
+    );
+
+    setWanderingPinkDots(prev =>
+      prev.filter(dot => existingProtestTagIds.has(dot.targetTagId))
+    );
+  }, [tags]);
+
+  // 时期变化时清理圆点
+  useEffect(() => {
+    if (currentPeriod !== '2006–2010') {
+      setWanderingPinkDots([]);
+      prevHeatRef.current = publicOpinionHeat; // 设置为当前热度值，避免回退时产生差值
+    }
+  }, [currentPeriod, publicOpinionHeat]);
 
   // 监控新的抗议标签（真正的 isProtestTag: true），触发粉色动画
   useEffect(() => {
@@ -565,6 +756,24 @@ export default function CommentTags({
           );
         });
       })()}
+
+      {/* Period-3 游走粉色圆点 */}
+      {currentPeriod === '2006–2010' && wanderingPinkDots.map(dot => (
+        <div
+          key={dot.id}
+          className="absolute rounded-full pointer-events-none"
+          style={{
+            left: `${dot.position.x}px`,
+            top: `${dot.position.y}px`,
+            width: '6px',
+            height: '6px',
+            backgroundColor: '#F328A5',
+            boxShadow: '0 0 4px rgba(243, 40, 165, 0.8)',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 56
+          }}
+        />
+      ))}
     </>
   );
-}
+})

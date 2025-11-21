@@ -24,6 +24,7 @@ interface WanderingCharacterProps {
     timeRemaining: number;
   }) => void;
   restrictedZones?: RestrictedZone[]; // 新增：限制区域列表
+  currentPeriod?: string; // 新增：当前时期
 }
 
 export interface WanderingCharacterRef {
@@ -59,7 +60,8 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
   apiKey,
   baseUrl,
   onDebugDataUpdate,
-  restrictedZones = [] // 默认空数组
+  restrictedZones = [], // 默认空数组
+  currentPeriod = '' // 默认空字符串
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const trajectorySystemRef = useRef<TrajectorySystem | null>(null);
@@ -240,6 +242,16 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
       trajectorySystemRef.current.updateRestrictedZones(restrictedZones);
     }
   }, [restrictedZones, artistId]);
+
+  // 根据时期调整评估间隔
+  useEffect(() => {
+    if (trajectorySystemRef.current) {
+      // period-3 (2006–2010) 及以后使用10秒间隔，其他时期使用5秒间隔
+      const interval = (currentPeriod === '2006–2010' || currentPeriod === '2010–2017') ? 10000 : 5000;
+      console.log(`⏱️ WanderingCharacter: Setting evaluation interval to ${interval}ms for period: ${currentPeriod}`);
+      trajectorySystemRef.current.setEvaluationInterval(interval);
+    }
+  }, [currentPeriod]);
 
   // 暴露控制方法给父组件
   useImperativeHandle(ref, () => ({

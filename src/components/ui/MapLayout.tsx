@@ -5,7 +5,7 @@ import WanderingCharacter, { WanderingCharacterRef } from './WanderingCharacter'
 import WanderingGovernment, { WanderingGovernmentRef } from './WanderingGovernment';
 import GridCursor from './GridCursor';
 import SimpleArtistDot from './SimpleArtistDot';
-import CommentTags, { CommentTag } from './CommentTags';
+import CommentTags, { CommentTag, CommentTagsRef } from './CommentTags';
 import StudioCircles, { StudioCirclesRef, StudioCircle } from './StudioCircles';
 import GridOverlay from './GridOverlay';
 import Timeline from './Timeline';
@@ -65,6 +65,7 @@ const MapLayout = () => {
   const gridSystemRef = useRef<GridSystem | null>(null);
   const wanderingGovernmentRef = useRef<WanderingGovernmentRef>(null);
   const studioCirclesRef = useRef<StudioCirclesRef>(null);
+  const commentTagsRef = useRef<CommentTagsRef>(null);
   const [checkedItems, setCheckedItems] = useState<{ [key: string]: boolean }>({
     artist: true,
     government: false
@@ -466,10 +467,7 @@ const MapLayout = () => {
     if (publicOpinionHeat >= 20 && currentPeriodId === 'period-2') {
       console.log(`🚀 Auto-transitioning from period2 to period3! Public Opinion Heat: ${publicOpinionHeat}`);
 
-      // 保存当前时期的状态快照
-      saveCurrentPeriodSnapshot();
-
-      // 标记所有现有的commentTags为isPrePeriod3Tag
+      // 先标记所有现有的commentTags为isPrePeriod3Tag
       setCommentTags(prev => {
         console.log(`📌 Marking ${prev.length} existing tags as pre-period-3 tags`);
         return prev.map(tag => ({
@@ -477,6 +475,11 @@ const MapLayout = () => {
           isPrePeriod3Tag: true
         }));
       });
+
+      // 延迟保存快照，确保标记已经生效
+      setTimeout(() => {
+        saveCurrentPeriodSnapshot();
+      }, 100);
 
       // 切换到period3（2006-2010）- 注意：不清除数据，保持黑色点等内容
       setCurrentPeriodId('period-3');
@@ -979,6 +982,12 @@ const MapLayout = () => {
       console.log('🔄 Government role reset after snapshot restore');
     }
 
+    // 重置CommentTags中的游走粉色圆点
+    if (commentTagsRef.current) {
+      commentTagsRef.current.clearWanderingDots();
+      console.log('🔄 Wandering pink dots cleared after snapshot restore');
+    }
+
     // 恢复UI checkedItems
     setCheckedItems(prev => ({
       ...prev,
@@ -1053,6 +1062,17 @@ const MapLayout = () => {
   const performPeriodChange = (periodId: string) => {
     console.log(`✅ Performing period change to: ${periodId}`);
     setCurrentPeriodId(periodId);
+
+    // 如果切换到period-3，标记所有现有标签为pre-period-3标签
+    if (periodId === 'period-3') {
+      setCommentTags(prev => {
+        console.log(`📌 [performPeriodChange] Marking ${prev.length} existing tags as pre-period-3 tags`);
+        return prev.map(tag => ({
+          ...tag,
+          isPrePeriod3Tag: true
+        }));
+      });
+    }
 
     // 根据时期自动激活政府角色（period-2及以后需要政府）
     const periodIndex = timelineData.periods.findIndex(p => p.id === periodId);
@@ -1312,6 +1332,7 @@ const MapLayout = () => {
                   onAIEvaluation={handleAIEvaluation} // 所有艺术家都可以生成评论
                   onDebugDataUpdate={index === 0 ? handleDebugDataUpdate : undefined} // 只有第一个艺术家更新调试信息
                   restrictedZones={restrictedZones} // 传递限制区域
+                  currentPeriod={currentPeriod?.years || ''} // 传递当前时期
                 />
                 );
               })}
@@ -1376,11 +1397,14 @@ const MapLayout = () => {
 
                 return (
                   <CommentTags
+                    ref={commentTagsRef}
                     tags={commentTags}
                     currentPeriod={currentPeriod?.years || ''}
                     passedZones={passedZones}
                     demolishedProtestPositions={demolishedProtestPositions}
-                    className="absolute inset-0 z-70"
+                    publicOpinionHeat={publicOpinionHeat}
+                    canvasWidth={mapDimensions.width}
+                    canvasHeight={mapDimensions.height}
                   />
                 );
               })()}
