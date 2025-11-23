@@ -291,8 +291,8 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
             ctx.arc(circle.centerX, circle.centerY, currentRadius, 0, 2 * Math.PI);
             ctx.stroke();
 
-            // 绘制渐变点阵填充 (100%透明度) - 从圆心#FF3E33到边缘#FF8126
-            ctx.globalAlpha = 1.0;
+            // 绘制点阵填充 - 统一使用#FF8126色，透明度80%
+            ctx.globalAlpha = 0.8;
             const dotSize = 2; // 直径4px，半径2px
             const spacing = 6; // 减小间距
 
@@ -300,6 +300,8 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
             const maxX = circle.centerX + currentRadius;
             const minY = circle.centerY - currentRadius;
             const maxY = circle.centerY + currentRadius;
+
+            ctx.fillStyle = '#FF8126';
 
             for (let x = minX; x <= maxX; x += spacing) {
               for (let y = minY; y <= maxY; y += spacing) {
@@ -310,15 +312,6 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
                 );
 
                 if (distanceFromCenter <= currentRadius - 5) {
-                  // 计算渐变颜色：从圆心#FF3E33到边缘#FF8126
-                  const ratio = distanceFromCenter / (currentRadius - 5);
-                  // #FF3E33 = rgb(255, 62, 51)
-                  // #FF8126 = rgb(255, 129, 38)
-                  const r = 255;
-                  const g = Math.round(62 + (129 - 62) * ratio);
-                  const b = Math.round(51 + (38 - 51) * ratio);
-
-                  ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
                   ctx.beginPath();
                   ctx.arc(offsetX, y, dotSize, 0, 2 * Math.PI);
                   ctx.fill();
@@ -326,8 +319,8 @@ const StudioCircles = forwardRef<StudioCirclesRef, StudioCirclesProps>(({
               }
             }
 
-            // 绘制#FF3E33色圆心点
-            ctx.fillStyle = '#FF3E33';
+            // 绘制#FF8126色圆心点
+            ctx.fillStyle = '#FF8126';
             ctx.beginPath();
             ctx.arc(circle.centerX, circle.centerY, 2, 0, 2 * Math.PI);
             ctx.fill();

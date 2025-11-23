@@ -6,6 +6,7 @@ import WanderingGovernment, { WanderingGovernmentRef } from './WanderingGovernme
 import GridCursor from './GridCursor';
 import SimpleArtistDot from './SimpleArtistDot';
 import CommentTags, { CommentTag, CommentTagsRef } from './CommentTags';
+import Period3Debate from './Period3Debate';
 import StudioCircles, { StudioCirclesRef, StudioCircle } from './StudioCircles';
 import GridOverlay from './GridOverlay';
 import Timeline from './Timeline';
@@ -1408,6 +1409,14 @@ const MapLayout = () => {
                   />
                 );
               })()}
+
+              {/* Period-3 辩论系统 */}
+              <Period3Debate
+                protestTags={commentTags.filter(tag => tag.isProtestTag)}
+                currentPeriod={currentPeriod?.years || ''}
+                canvasWidth={mapDimensions.width}
+                canvasHeight={mapDimensions.height}
+              />
             </div>
           </div>
 
