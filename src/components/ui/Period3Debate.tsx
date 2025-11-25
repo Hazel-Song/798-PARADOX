@@ -82,6 +82,11 @@ export default function Period3Debate({
 
   // 开始新一轮对话
   const startRound = (roundIndex: number) => {
+    // 清除任何现有的定时器，防止竞态条件
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
     const round = DEBATE_PRESETS[roundIndex];
 
     // 重置状态
@@ -100,7 +105,13 @@ export default function Period3Debate({
   // Artist 打字机效果
   const typeArtistText = (fullText: string, roundIndex: number) => {
     if (artistIndexRef.current < fullText.length) {
-      setArtistText(prev => prev + fullText[artistIndexRef.current]);
+      if (artistIndexRef.current === 0) {
+        // 第一个字符直接设置，不追加，避免状态更新异步问题
+        setArtistText(fullText[0]);
+      } else {
+        // 后续字符追加
+        setArtistText(prev => prev + fullText[artistIndexRef.current]);
+      }
       artistIndexRef.current++;
 
       typingTimeoutRef.current = setTimeout(() => {
@@ -122,7 +133,13 @@ export default function Period3Debate({
   // Government 打字机效果
   const typeGovText = (fullText: string, roundIndex: number) => {
     if (govIndexRef.current < fullText.length) {
-      setGovText(prev => prev + fullText[govIndexRef.current]);
+      if (govIndexRef.current === 0) {
+        // 第一个字符直接设置，不追加，避免状态更新异步问题
+        setGovText(fullText[0]);
+      } else {
+        // 后续字符追加
+        setGovText(prev => prev + fullText[govIndexRef.current]);
+      }
       govIndexRef.current++;
 
       typingTimeoutRef.current = setTimeout(() => {
@@ -181,16 +198,15 @@ export default function Period3Debate({
         style={{
           left: `${baseX + 15}px`,
           top: `${baseY - 20}px`,
-          minWidth: '150px',
-          maxWidth: '200px',
+          minWidth: '180px',
+          maxWidth: '240px',
           padding: '6px 8px',
-          border: '2px solid #F328A5',
-          backgroundColor: '#FFFFFF',
-          color: '#F328A5',
+          border: '1px solid #FFFFFF',
+          background: 'linear-gradient(to right, #F328A5, rgba(255, 255, 255, 0.8))',
+          color: '#000000',
           fontFamily: 'monospace',
           fontSize: '9px',
           lineHeight: '1.4',
-          borderRadius: '4px',
           boxShadow: '0 2px 8px rgba(243, 40, 165, 0.2)'
         }}
       >
@@ -206,11 +222,11 @@ export default function Period3Debate({
         className="absolute rounded-full"
         style={{
           left: `${baseX}px`,
-          top: `${baseY + 100}px`,
+          top: `${baseY + 50}px`,
           width: '8px',
           height: '8px',
-          backgroundColor: '#FF550F',
-          boxShadow: '0 0 10px 2px rgba(255, 85, 15, 0.8)',
+          backgroundColor: '#DA120B',
+          boxShadow: '0 0 10px 2px rgba(218, 18, 11, 0.8)',
           transform: 'translate(-50%, -50%)'
         }}
       />
@@ -220,21 +236,20 @@ export default function Period3Debate({
         className="absolute pointer-events-auto"
         style={{
           left: `${baseX + 15}px`,
-          top: `${baseY + 110}px`,
-          minWidth: '150px',
-          maxWidth: '200px',
+          top: `${baseY + 60}px`,
+          minWidth: '180px',
+          maxWidth: '240px',
           padding: '6px 8px',
-          border: '2px solid #FF550F',
-          backgroundColor: '#000000',
+          border: '1px solid #000000',
+          background: 'linear-gradient(to right, #EB1139, #000000)',
           color: '#FFFFFF',
           fontFamily: 'monospace',
           fontSize: '9px',
           lineHeight: '1.4',
-          borderRadius: '4px',
-          boxShadow: '0 2px 8px rgba(255, 85, 15, 0.2)'
+          boxShadow: '0 2px 8px rgba(235, 17, 57, 0.2)'
         }}
       >
-        <div style={{ marginBottom: '2px', fontWeight: 'bold', fontSize: '8px', color: '#FF550F' }}>
+        <div style={{ marginBottom: '2px', fontWeight: 'bold', fontSize: '8px', color: '#FFFFFF' }}>
           REGULATOR
         </div>
         {govText}

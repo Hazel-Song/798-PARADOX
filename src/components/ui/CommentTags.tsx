@@ -571,31 +571,47 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                   }}
                 />
 
+                {/* period-3 抗议标签的白色圆底层 */}
+                {isProtestTag && currentPeriod === '2006–2010' && (
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      left: '0',
+                      top: '0',
+                      transform: 'translate(-50%, -50%)',
+                      backgroundColor: '#FFFFFF',
+                      zIndex: 58 // 在核心圆之下
+                    }}
+                  />
+                )}
+
                 {/* 核心亮点 */}
                 <div
                   className={`absolute rounded-full shadow-lg ${
                     isProtestTag
                       ? (currentPeriod === '2006–2010' ? 'bg-[#F328A5]' : 'bg-pink-500') // period-3中抗议标签变为粉色#F328A5
                       : (inPassedZone || isGovernmentEvaluated)
-                        ? 'bg-black shadow-[#FF550F]/80 color-change-animation' // passed区域或政府评估过的标签保持黑色
+                        ? 'bg-[#EB1139] shadow-black/80 color-change-animation' // passed区域或政府评估过的标签改为#EB1139填充
                         : isPrePeriod3Tag
                           ? 'bg-[#C2B89D]' // period-3之前创建的标签使用#C2B89D填充
                           : 'bg-[#FFF5DB]' // 其他情况都使用#FFF5DB
                   }`}
                   style={{
-                    width: isProtestTag ? '22px' : '8px',
-                    height: isProtestTag ? '22px' : '8px',
+                    width: isProtestTag ? '16px' : '8px',
+                    height: isProtestTag ? '16px' : '8px',
                     left: '0',
                     top: '0',
                     transform: 'translate(-50%, -50%)',
-                    border: isProtestTag ? '5px solid #ffffff' : undefined,
+                    border: undefined, // 删除period-3的白色边框
                     zIndex: isProtestTag ? 60 : ((inPassedZone || isGovernmentEvaluated) ? 40 : undefined),
                     boxShadow: isProtestTag
                       ? (currentPeriod === '2006–2010'
-                          ? '0 0 30px 6px rgba(255, 255, 255, 0.8), 0 0 20px 4px rgba(255, 255, 255, 0.9), 0 0 12px 2px rgba(255, 255, 255, 1), 0 0 10px 3px rgba(243, 40, 165, 0.9), 0 0 6px 2px rgba(243, 40, 165, 1)' // period-3: 粉色#F328A5光晕
-                          : '0 0 30px 6px rgba(255, 255, 255, 0.8), 0 0 20px 4px rgba(255, 255, 255, 0.9), 0 0 12px 2px rgba(255, 255, 255, 1), 0 0 10px 3px rgba(236, 72, 153, 0.9), 0 0 6px 2px rgba(236, 72, 153, 1)') // 原粉色光晕
+                          ? '0 0 30px 6px rgba(255, 255, 255, 0.8), 0 0 20px 4px rgba(255, 255, 255, 0.9), 0 0 12px 2px rgba(255, 255, 255, 1)' // period-3: 仅白色光晕，删除粉色光晕
+                          : '0 0 40px 8px rgba(255, 255, 255, 1.0), 0 0 30px 6px rgba(255, 255, 255, 1.0), 0 0 20px 4px rgba(255, 255, 255, 1.0)') // 加强白色光晕效果
                       : (inPassedZone || isGovernmentEvaluated)
-                        ? '0 0 10px 2px rgba(255, 85, 15, 0.8), 0 0 6px 1px rgba(255, 85, 15, 1)' // passed区域或政府评估过的标签保持橙色阴影
+                        ? '0 0 10px 2px rgba(0, 0, 0, 0.8), 0 0 6px 1px rgba(0, 0, 0, 1)' // passed区域或政府评估过的标签改为黑色阴影
                         : isPrePeriod3Tag
                           ? '0 0 10px 2px rgba(133, 125, 114, 0.8), 0 0 6px 1px rgba(133, 125, 114, 1)' // period-3之前创建的标签使用#857D72光晕
                           : '0 0 10px 2px rgba(255, 245, 219, 0.6), 0 0 6px 1px rgba(255, 245, 219, 0.8)' // 所有情况使用#FFF5DB阴影
@@ -603,37 +619,108 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                 >
                 </div>
 
-                {/* 抗议标签的粉色内圆 - F328A5颜色 */}
-                {isProtestTag && (
+                {/* period-2 抗议标签的放射状线条花纹 */}
+                {isProtestTag && currentPeriod !== '2006–2010' && (
                   <div
-                    className="absolute rounded-full"
+                    className="absolute"
                     style={{
-                      width: '3px', // 小的粉色内圆，改为3px
-                      height: '3px',
+                      width: '70px',
+                      height: '70px',
                       left: '0',
                       top: '0',
                       transform: 'translate(-50%, -50%)',
-                      backgroundColor: '#F328A5',
-                      zIndex: 65 // 在粉色圆之上
+                      zIndex: 57 // 在粉色光晕之下，在白色光晕之上
                     }}
-                  />
+                  >
+                    <svg
+                      width="70"
+                      height="70"
+                      viewBox="0 0 70 70"
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0
+                      }}
+                    >
+                      {/* 生成72条放射线（每5度一条） */}
+                      {Array.from({ length: 72 }).map((_, i) => {
+                        const angle = (i * 5 * Math.PI) / 180;
+                        const startRadius = 11; // 核心圆半径
+                        const endRadius = 35; // 延伸半径
+                        const centerX = 35;
+                        const centerY = 35;
+
+                        const x1 = centerX + startRadius * Math.cos(angle);
+                        const y1 = centerY + startRadius * Math.sin(angle);
+                        const x2 = centerX + endRadius * Math.cos(angle);
+                        const y2 = centerY + endRadius * Math.sin(angle);
+
+                        return (
+                          <line
+                            key={i}
+                            x1={x1}
+                            y1={y1}
+                            x2={x2}
+                            y2={y2}
+                            stroke="rgba(255, 255, 255, 0.8)"
+                            strokeWidth="1"
+                          />
+                        );
+                      })}
+                    </svg>
+                  </div>
                 )}
 
-                {/* 抗议标签的外轮廓圆圈 - 1px外圆 - 扩大一倍 */}
-                {isProtestTag && (
+                {/* period-3 抗议标签的放射状线条花纹 - 大小与扩张圆一致 */}
+                {isProtestTag && currentPeriod === '2006–2010' && period3Configs[tag.id] && (
                   <div
-                    className="absolute rounded-full"
+                    className="absolute"
                     style={{
-                      width: '56px', // 扩大一倍：从28px到56px
-                      height: '56px',
+                      width: `${period3Configs[tag.id].expandedRadius * 2}px`,
+                      height: `${period3Configs[tag.id].expandedRadius * 2}px`,
                       left: '0',
                       top: '0',
                       transform: 'translate(-50%, -50%)',
-                      border: '1px solid rgba(255, 255, 255, 0.8)', // 1px白色外轮廓
-                      backgroundColor: 'transparent',
-                      zIndex: 55 // 在主圆之下，在passed圆之上
+                      zIndex: 57 // 在白色圆和核心圆之间
                     }}
-                  />
+                  >
+                    <svg
+                      width={period3Configs[tag.id].expandedRadius * 2}
+                      height={period3Configs[tag.id].expandedRadius * 2}
+                      viewBox={`0 0 ${period3Configs[tag.id].expandedRadius * 2} ${period3Configs[tag.id].expandedRadius * 2}`}
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0
+                      }}
+                    >
+                      {/* 生成72条放射线（每5度一条） */}
+                      {Array.from({ length: 72 }).map((_, i) => {
+                        const angle = (i * 5 * Math.PI) / 180;
+                        const startRadius = 11; // 核心圆半径
+                        const endRadius = period3Configs[tag.id].expandedRadius - 5; // 延伸到扩张圆边缘，留5px边距
+                        const centerX = period3Configs[tag.id].expandedRadius;
+                        const centerY = period3Configs[tag.id].expandedRadius;
+
+                        const x1 = centerX + startRadius * Math.cos(angle);
+                        const y1 = centerY + startRadius * Math.sin(angle);
+                        const x2 = centerX + endRadius * Math.cos(angle);
+                        const y2 = centerY + endRadius * Math.sin(angle);
+
+                        return (
+                          <line
+                            key={i}
+                            x1={x1}
+                            y1={y1}
+                            x2={x2}
+                            y2={y2}
+                            stroke="rgba(255, 255, 255, 0.8)"
+                            strokeWidth="1"
+                          />
+                        );
+                      })}
+                    </svg>
+                  </div>
                 )}
 
                 {/* period-3抗议标签的扩张圆 */}
@@ -700,7 +787,7 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                     bottom: '18px',
                     transform: 'translateX(-50%)',
                     zIndex: isProtestTag ? 80 : 50,
-                    color: isProtestTag ? '#E70014' : undefined // 抗议文本使用E70014红色
+                    color: isProtestTag ? '#F328A5' : undefined // 抗议文本使用F328A5粉色
                   }}
                   onMouseEnter={() => {
                     // 鼠标悬浮时重新显示（非抗议标签）
