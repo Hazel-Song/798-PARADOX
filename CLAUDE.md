@@ -233,6 +233,12 @@ REPLICATE_API_TOKEN=your_replicate_token_here
 
 ## Recent Development History
 
+- **ab661ac** (Nov 25) - Enhance period-3 visual styling and debate interface
+  - Update period-3 passed circles: #EB1139 background with #FF8126 dot pattern (100% opacity)
+  - Modify government-evaluated comment tags: #EB1139 fill with black glow
+  - Adjust artist debate box: pink to 80% transparent white gradient, remove border radius
+  - Update government debate box: #EB1139 to black gradient with white text, 1px borders
+  - Comprehensive period-3 visual styling unification around #EB1139 theme
 - **8692be3** (Nov 21) - Add wandering pink dots system and improve period-3 mechanics
   - Implement wandering pink dots in period-3 (spawn on heat increase, Brownian motion)
   - Fix pink dots regenerating bug on time rewind
@@ -361,7 +367,7 @@ When comparing period names in components (like `WanderingGovernment.shouldShow`
 - **"REGULATOR" label**: Orange (#FF550F) text displayed above government character, 12px monospace font with glow effect
 - **Period-specific behavior**:
   - Period-2: Evaluates studio circles (10s evaluation time), alternating demolish/passed results
-  - Period-3: Evaluates comment tags (3s evaluation time), marks them with black fill + orange glow
+  - Period-3: Evaluates comment tags (3s evaluation time), marks them with #EB1139 fill + black glow
 
 ### 5. Comment Tag System
 - Floating tags with sight/thought content
@@ -377,7 +383,7 @@ When comparing period names in components (like `WanderingGovernment.shouldShow`
 - **Period-3 tag styles**:
   - Pre-period-3 tags (existing at transition): #857D72 glow + #C2B89D fill
   - New period-3 tags: White fill + white glow (same as period-1/2)
-  - Government-evaluated tags: Black fill (#000) + orange glow (#FF550F)
+  - Government-evaluated tags: #EB1139 fill + black glow
   - Protest tags: Expanded circle (50-100px, 1px white border, 20% white fill)
 - **Z-index layering**: Normal tags (default), passed zone tags (z-index: 40), protest tags (z-index: 60)
 
@@ -421,11 +427,11 @@ When comparing period names in components (like `WanderingGovernment.shouldShow`
   - Dot size: 4px diameter, 6px spacing
   - Circle size: 50px-125px radius (half of period-1)
 - **Period-3 (2006–2010) passed circle style**:
-  - 30% opacity #FF8126 fill
-  - 1px solid #FF8126 outline
-  - Gradient dot pattern: #F328A5 (pink center) → #FF3E33 → #FF8126 (edge)
+  - 30% opacity #EB1139 fill
+  - 1px solid #EB1139 outline
+  - Uniform #FF8126 dot pattern (100% opacity)
   - Dot size: 4px diameter, 6px spacing
-  - Pink center point (#F328A5)
+  - #FF8126 center point
 - **Dependency fix**: `currentPeriodId` added to canvas animation dependency array to ensure consistent styling during auto-transitions
 
 ### 7. Time Travel System
@@ -436,6 +442,23 @@ When comparing period names in components (like `WanderingGovernment.shouldShow`
 - **Extended snapshot data**: Includes `publicOpinionHeat`, `isGovernmentActive`, `governmentInputs`, `evaluationResult`
 - **Government reset on restore**: Calls `wanderingGovernmentRef.current.reset()` to clear evaluation progress
 - **Pink ripple cleanup**: Clears `demolishedProtestPositions` on snapshot restore
+
+### 7a. Period-3 Debate System
+- **Activation**: Automatic dialogue system in period-3 (`2006–2010`)
+- **Trigger mechanism**: Randomly selects a protest tag when entering period-3
+- **Dialogue structure**:
+  - 5 preset conversation rounds between ARTIST and REGULATOR
+  - Topics: artistic freedom vs government control, 798's commercialization
+  - Typewriter animation with 50ms per character
+- **Visual styling**:
+  - Artist box: Linear gradient from pink (#F328A5) to 80% transparent white, black text
+  - Government box: Linear gradient from red (#EB1139) to black, white text
+  - 1px borders, no border radius for angular appearance
+  - Positioned relative to selected protest tag
+- **Animation cycle**:
+  - Artist types → 1s delay → Government types → 2s delay → next round
+  - Cycles through all 5 rounds continuously
+- **Implementation**: `Period3Debate.tsx` with React state management and timeout control
 
 ### 8. Responsive Layout
 - 2/3 left panel for map
