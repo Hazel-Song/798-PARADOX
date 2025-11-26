@@ -134,9 +134,9 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
     }
   };
 
-  // 监听publicOpinionHeat变化，在period-3中生成粉色圆点
+  // 监听publicOpinionHeat变化，在period-3和period-4中生成粉色圆点
   useEffect(() => {
-    if (currentPeriod !== '2006–2010') {
+    if (currentPeriod !== '2006–2010' && currentPeriod !== '2010–2017') {
       prevHeatRef.current = publicOpinionHeat;
       return;
     }
@@ -183,7 +183,7 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
 
   // 粉色圆点动画循环
   useEffect(() => {
-    if (currentPeriod !== '2006–2010' || wanderingPinkDots.length === 0) {
+    if ((currentPeriod !== '2006–2010' && currentPeriod !== '2010–2017') || wanderingPinkDots.length === 0) {
       return;
     }
 
@@ -272,7 +272,7 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
 
   // 时期变化时清理圆点
   useEffect(() => {
-    if (currentPeriod !== '2006–2010') {
+    if (currentPeriod !== '2006–2010' && currentPeriod !== '2010–2017') {
       setWanderingPinkDots([]);
       prevHeatRef.current = publicOpinionHeat; // 设置为当前热度值，避免回退时产生差值
     }
@@ -420,8 +420,8 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
         }));
       }
 
-      // 在period-3中为抗议标签生成随机配置
-      if (tag.isProtestTag && currentPeriod === '2006–2010' && !period3Configs[tag.id]) {
+      // 在period-3和period-4中为抗议标签生成随机配置
+      if (tag.isProtestTag && (currentPeriod === '2006–2010' || currentPeriod === '2010–2017') && !period3Configs[tag.id]) {
         setPeriod3Configs(prev => ({
           ...prev,
           [tag.id]: {
@@ -476,8 +476,8 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
   useEffect(() => {
     setLocalPinkPositions({});
     setTriggeredAnimations(new Set());
-    // 如果不是period-3，清理period-3配置
-    if (currentPeriod !== '2006–2010') {
+    // 如果不是period-3或period-4，清理period-3配置
+    if (currentPeriod !== '2006–2010' && currentPeriod !== '2010–2017') {
       setPeriod3Configs({});
     }
   }, [currentPeriod]);
@@ -539,6 +539,11 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
           const inPassedZone = !isProtestTag && isPointInPassedZone(tag.position.x, tag.position.y);
           const isGovernmentEvaluated = tag.isGovernmentEvaluated === true; // period-3中被政府评估过的标签
           const isPrePeriod3Tag = tag.isPrePeriod3Tag === true && currentPeriod === '2006–2010'; // period-3之前创建的标签，在period-3中显示特殊样式
+          // 修正period-2政府触及逻辑：在period-2中，政府评估工作室圆形，不直接评估comment tags
+          // 所以period-2中在passed区域内的tag应该被视为政府触及的
+          const isPeriod2GovernmentTouched = (currentPeriod === '2002-2006') && inPassedZone; // period-2中在passed区域的标签视为政府触及
+          const isPeriod3GovernmentTouched = isGovernmentEvaluated && currentPeriod === '2006–2010'; // period-3中被政府评估过的标签
+          const isPeriod4GovernmentTouched = isGovernmentEvaluated && currentPeriod === '2010–2017'; // period-4中被政府评估过的标签
 
           return (
             <div
@@ -556,23 +561,29 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                   className={`absolute rounded-full blur-sm opacity-30 ${
                     isProtestTag
                       ? 'bg-white' // 抗议标签保持白色
-                      : (inPassedZone || isGovernmentEvaluated)
-                        ? 'bg-[#FF550F]' // passed区域或政府评估过的标签保持橙色
-                        : isPrePeriod3Tag
-                          ? 'bg-[#857D72]' // period-3之前创建的标签使用#857D72光晕
-                          : 'bg-white' // 其他所有情况都改为白色
+                      : isPeriod4GovernmentTouched
+                        ? 'bg-[#EB1139]' // period-4政府触及的标签使用#EB1139光晕
+                        : isPeriod2GovernmentTouched
+                          ? 'bg-[#000000]' // period-2政府触及的标签使用黑色光晕
+                          : isPeriod3GovernmentTouched
+                            ? 'bg-[#FF550F]' // period-3政府触及的标签使用#FF550F光晕
+                            : (inPassedZone && !isGovernmentEvaluated)
+                              ? 'bg-[#FF550F]' // 只有passed区域但未被政府评估的标签保持橙色
+                              : isPrePeriod3Tag
+                                ? 'bg-[#857D72]' // period-3之前创建的标签使用#857D72光晕
+                                : 'bg-white' // 其他所有情况都改为白色
                   }`}
                   style={{
-                    width: isProtestTag ? '32px' : '32px',
-                    height: isProtestTag ? '32px' : '32px',
+                    width: isPeriod4GovernmentTouched ? '48px' : (isProtestTag ? '32px' : '32px'), // period-4政府触及的标签光晕更大
+                    height: isPeriod4GovernmentTouched ? '48px' : (isProtestTag ? '32px' : '32px'),
                     left: '0',
                     top: '0',
                     transform: 'translate(-50%, -50%)'
                   }}
                 />
 
-                {/* period-3 抗议标签的白色圆底层 */}
-                {isProtestTag && currentPeriod === '2006–2010' && (
+                {/* period-3 和 period-4 抗议标签的白色圆底层 */}
+                {isProtestTag && (currentPeriod === '2006–2010' || currentPeriod === '2010–2017') && (
                   <div
                     className="absolute rounded-full"
                     style={{
@@ -591,12 +602,18 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                 <div
                   className={`absolute rounded-full shadow-lg ${
                     isProtestTag
-                      ? (currentPeriod === '2006–2010' ? 'bg-[#F328A5]' : 'bg-pink-500') // period-3中抗议标签变为粉色#F328A5
-                      : (inPassedZone || isGovernmentEvaluated)
-                        ? 'bg-[#EB1139] shadow-black/80 color-change-animation' // passed区域或政府评估过的标签改为#EB1139填充
-                        : isPrePeriod3Tag
-                          ? 'bg-[#C2B89D]' // period-3之前创建的标签使用#C2B89D填充
-                          : 'bg-[#FFF5DB]' // 其他情况都使用#FFF5DB
+                      ? (currentPeriod === '2006–2010' ? 'bg-[#F328A5]' : (currentPeriod === '2010–2017' ? 'bg-[#EB1139]' : 'bg-pink-500')) // period-3抗议标签粉色#F328A5，period-4抗议标签红色#EB1139
+                      : isPeriod4GovernmentTouched
+                        ? 'bg-[#000000]' // period-4政府触及的标签使用黑色填充
+                        : isPeriod3GovernmentTouched
+                          ? 'bg-[#000000] color-change-animation' // period-3政府触及的标签使用黑色填充
+                          : isPeriod2GovernmentTouched
+                            ? 'bg-[#000000] color-change-animation' // period-2政府触及的标签使用黑色填充
+                            : (inPassedZone && !isGovernmentEvaluated && currentPeriod !== '2002-2006')
+                              ? 'bg-[#EB1139] shadow-black/80 color-change-animation' // 只有passed区域但未被政府评估的标签使用#EB1139填充（排除period-2）
+                              : isPrePeriod3Tag
+                                ? 'bg-[#C2B89D]' // period-3之前创建的标签使用#C2B89D填充
+                                : 'bg-[#FFF5DB]' // 其他情况都使用#FFF5DB
                   }`}
                   style={{
                     width: isProtestTag ? '16px' : '8px',
@@ -604,23 +621,29 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                     left: '0',
                     top: '0',
                     transform: 'translate(-50%, -50%)',
-                    border: undefined, // 删除period-3的白色边框
-                    zIndex: isProtestTag ? 60 : ((inPassedZone || isGovernmentEvaluated) ? 40 : undefined),
+                    border: undefined, // 删除黑色轮廓
+                    zIndex: isProtestTag ? 60 : ((inPassedZone || isGovernmentEvaluated || isPeriod2GovernmentTouched || isPeriod3GovernmentTouched || isPeriod4GovernmentTouched) ? 40 : undefined),
                     boxShadow: isProtestTag
-                      ? (currentPeriod === '2006–2010'
+                      ? ((currentPeriod === '2006–2010' || currentPeriod === '2010–2017')
                           ? '0 0 30px 6px rgba(255, 255, 255, 0.8), 0 0 20px 4px rgba(255, 255, 255, 0.9), 0 0 12px 2px rgba(255, 255, 255, 1)' // period-3: 仅白色光晕，删除粉色光晕
                           : '0 0 40px 8px rgba(255, 255, 255, 1.0), 0 0 30px 6px rgba(255, 255, 255, 1.0), 0 0 20px 4px rgba(255, 255, 255, 1.0)') // 加强白色光晕效果
-                      : (inPassedZone || isGovernmentEvaluated)
-                        ? '0 0 10px 2px rgba(0, 0, 0, 0.8), 0 0 6px 1px rgba(0, 0, 0, 1)' // passed区域或政府评估过的标签改为黑色阴影
-                        : isPrePeriod3Tag
-                          ? '0 0 10px 2px rgba(133, 125, 114, 0.8), 0 0 6px 1px rgba(133, 125, 114, 1)' // period-3之前创建的标签使用#857D72光晕
-                          : '0 0 10px 2px rgba(255, 245, 219, 0.6), 0 0 6px 1px rgba(255, 245, 219, 0.8)' // 所有情况使用#FFF5DB阴影
+                      : isPeriod4GovernmentTouched
+                        ? '0 0 12px 3px rgba(235, 17, 57, 1), 0 0 20px 5px rgba(255, 129, 38, 1), 0 0 15px 3px rgba(255, 129, 38, 1)' // period-4政府触及的标签：第一圈#EB1139光晕 + 第二圈#FF8126橙色光晕
+                        : isPeriod3GovernmentTouched
+                          ? '0 0 10px 2px rgba(255, 85, 15, 0.8), 0 0 6px 1px rgba(255, 85, 15, 1)' // period-3政府触及的标签：橙色光晕
+                          : isPeriod2GovernmentTouched
+                            ? '0 0 10px 2px rgba(255, 85, 15, 0.8), 0 0 6px 1px rgba(255, 85, 15, 1)' // period-2政府触及的标签：橙色光晕
+                            : (inPassedZone && !isGovernmentEvaluated && currentPeriod !== '2002-2006')
+                              ? '0 0 10px 2px rgba(0, 0, 0, 0.8), 0 0 6px 1px rgba(0, 0, 0, 1)' // 只有passed区域但未被政府评估的标签使用黑色阴影（排除period-2）
+                              : isPrePeriod3Tag
+                                ? '0 0 10px 2px rgba(133, 125, 114, 0.8), 0 0 6px 1px rgba(133, 125, 114, 1)' // period-3之前创建的标签使用#857D72光晕
+                                : '0 0 10px 2px rgba(255, 245, 219, 0.6), 0 0 6px 1px rgba(255, 245, 219, 0.8)' // 所有情况使用#FFF5DB阴影
                   }}
                 >
                 </div>
 
                 {/* period-2 抗议标签的放射状线条花纹 */}
-                {isProtestTag && currentPeriod !== '2006–2010' && (
+                {isProtestTag && (currentPeriod !== '2006–2010' && currentPeriod !== '2010–2017') && (
                   <div
                     className="absolute"
                     style={{
@@ -645,7 +668,7 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                       {/* 生成72条放射线（每5度一条） */}
                       {Array.from({ length: 72 }).map((_, i) => {
                         const angle = (i * 5 * Math.PI) / 180;
-                        const startRadius = 11; // 核心圆半径
+                        const startRadius = 8; // 核心圆半径（从8px开始，更靠近圆心）
                         const endRadius = 35; // 延伸半径
                         const centerX = 35;
                         const centerY = 35;
@@ -671,8 +694,8 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                   </div>
                 )}
 
-                {/* period-3 抗议标签的放射状线条花纹 - 大小与扩张圆一致 */}
-                {isProtestTag && currentPeriod === '2006–2010' && period3Configs[tag.id] && (
+                {/* period-3 和 period-4 抗议标签的放射状线条花纹 - 大小与扩张圆一致 */}
+                {isProtestTag && (currentPeriod === '2006–2010' || currentPeriod === '2010–2017') && period3Configs[tag.id] && (
                   <div
                     className="absolute"
                     style={{
@@ -694,10 +717,20 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                         top: 0
                       }}
                     >
+                      {/* 径向渐变定义 - period-4专用 */}
+                      {currentPeriod === '2010–2017' && (
+                        <defs>
+                          <radialGradient id={`radialGradient-${tag.id}`} cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stopColor="#FFFFFF" />
+                            <stop offset="100%" stopColor="#FFFFFF" />
+                          </radialGradient>
+                        </defs>
+                      )}
+
                       {/* 生成72条放射线（每5度一条） */}
                       {Array.from({ length: 72 }).map((_, i) => {
                         const angle = (i * 5 * Math.PI) / 180;
-                        const startRadius = 11; // 核心圆半径
+                        const startRadius = 8; // 核心圆半径（从8px开始，更靠近圆心）
                         const endRadius = period3Configs[tag.id].expandedRadius - 5; // 延伸到扩张圆边缘，留5px边距
                         const centerX = period3Configs[tag.id].expandedRadius;
                         const centerY = period3Configs[tag.id].expandedRadius;
@@ -714,7 +747,7 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                             y1={y1}
                             x2={x2}
                             y2={y2}
-                            stroke="rgba(255, 255, 255, 0.8)"
+                            stroke={currentPeriod === '2010–2017' ? `url(#radialGradient-${tag.id})` : "rgba(255, 255, 255, 0.8)"}
                             strokeWidth="1"
                           />
                         );
@@ -723,8 +756,8 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                   </div>
                 )}
 
-                {/* period-3抗议标签的扩张圆 */}
-                {isProtestTag && currentPeriod === '2006–2010' && period3Configs[tag.id] && (
+                {/* period-3和period-4抗议标签的扩张圆 */}
+                {isProtestTag && (currentPeriod === '2006–2010' || currentPeriod === '2010–2017') && period3Configs[tag.id] && (
                   <div
                     className="absolute rounded-full"
                     style={{
@@ -740,7 +773,7 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                       transition: expandingAnimations.has(tag.id)
                         ? 'transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)'
                         : 'none',
-                      border: '1px solid rgba(255, 255, 255, 1)', // 1px白色实线
+                      border: currentPeriod === '2010–2017' ? '1px solid #EB1139' : '1px solid rgba(255, 255, 255, 1)', // period-4红色边框，period-3白色边框
                       backgroundColor: 'rgba(255, 255, 255, 0.2)', // 20%白色填充
                       zIndex: 54 // 在外轮廓之下
                     }}
@@ -770,8 +803,8 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
 
               {/* 评论文字 - 显示在点的上方 */}
               {/* 在passed区域内的黑色artist点不显示评论 */}
-              {/* period-3中抗议标签不显示文本框和连接线 */}
-              {!(!isProtestTag && inPassedZone) && !(isProtestTag && currentPeriod === '2006–2010') && (
+              {/* period-3和period-4中抗议标签不显示文本框和连接线 */}
+              {!(!isProtestTag && inPassedZone) && !(isProtestTag && (currentPeriod === '2006–2010' || currentPeriod === '2010–2017')) && (
                 <div
                   className={`absolute px-2 py-1 text-[7px] leading-tight whitespace-normal pointer-events-auto transition-opacity duration-500 ${
                     isProtestTag
@@ -800,8 +833,8 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
                     }
                   }}
                 >
-                  {/* period-3中不显示抗议文本 */}
-                  {currentPeriod === '2006–2010' && isProtestTag
+                  {/* period-3和period-4中不显示抗议文本 */}
+                  {(currentPeriod === '2006–2010' || currentPeriod === '2010–2017') && isProtestTag
                     ? '' // period-3中抗议标签不显示文本
                     : isProtestTag
                       ? (protestTextIndexes[tag.id] !== undefined
@@ -895,8 +928,8 @@ export default forwardRef<CommentTagsRef, CommentTagsProps>(function CommentTags
         });
       })()}
 
-      {/* Period-3 游走粉色圆点 */}
-      {currentPeriod === '2006–2010' && wanderingPinkDots.map(dot => (
+      {/* Period-3 和 Period-4 游走粉色圆点 */}
+      {(currentPeriod === '2006–2010' || currentPeriod === '2010–2017') && wanderingPinkDots.map(dot => (
         <div
           key={dot.id}
           className="absolute rounded-full pointer-events-none"

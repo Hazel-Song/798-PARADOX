@@ -27,6 +27,7 @@ export class TrajectorySystem {
   private isPaused: boolean = false;
   private lastKeywords: string[] = [];
   private restrictedZones: RestrictedZone[] = []; // 新增：限制区域列表
+  private currentPeriod: string = '1995–2002'; // 新增：当前期间（使用en-dash）
 
   constructor(gridSystem: GridSystem, artistPersonality: ArtistPersonality, artistId?: string) {
     this.gridSystem = gridSystem;
@@ -545,21 +546,26 @@ export class TrajectorySystem {
     if (this.isPaused) {
       return;
     }
-    
+
+    // Period-4 (2010–2017) 中完全禁用评估
+    if (this.currentPeriod === '2010–2017') {
+      return; // 直接返回，不进行任何评估
+    }
+
     // 每10秒记录一次时间检查状态，减少日志频率
     if (now % 10000 < 100) {
       console.log('⏰ Time check - now:', now, 'nextEval:', this.nextEvaluationTime, 'timeLeft:', this.nextEvaluationTime - now);
     }
-    
+
     if (now >= this.nextEvaluationTime) {
       console.log('=== 5秒评估时间到，触发自动评估 ===');
       console.log('Current time:', now);
       console.log('Next evaluation time was:', this.nextEvaluationTime);
       console.log('Character moving:', this.character.isMoving);
-      
+
       this.triggerLocationEvaluation();
       this.nextEvaluationTime = now + this.evaluationInterval;
-      
+
       console.log('Next evaluation scheduled for:', this.nextEvaluationTime);
     }
   }
@@ -934,6 +940,26 @@ export class TrajectorySystem {
   // 获取暂停状态
   public isPausedState(): boolean {
     return this.isPaused;
+  }
+
+  // 设置当前时期
+  public setPeriod(period: string): void {
+    console.log(`🕐 TrajectorySystem: Setting period to ${period}`);
+    this.currentPeriod = period;
+
+    // 如果进入period-4，立即清除下一次评估时间，确保不触发
+    if (period === '2010–2017') {
+      console.log('🚫 TrajectorySystem: Disabling all evaluations for period-4');
+      this.nextEvaluationTime = Infinity;
+    } else if (period === '2006–2010') {
+      // period-3使用10秒间隔
+      this.evaluationInterval = 10000;
+      this.nextEvaluationTime = Date.now() + this.evaluationInterval;
+    } else {
+      // period-1和period-2使用5秒间隔
+      this.evaluationInterval = 5000;
+      this.nextEvaluationTime = Date.now() + this.evaluationInterval;
+    }
   }
 
   // Hash string to generate consistent seed for each artist

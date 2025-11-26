@@ -243,13 +243,12 @@ const WanderingCharacter = forwardRef<WanderingCharacterRef, WanderingCharacterP
     }
   }, [restrictedZones, artistId]);
 
-  // 根据时期调整评估间隔
+  // 根据时期调整评估间隔和启用状态
   useEffect(() => {
-    if (trajectorySystemRef.current) {
-      // period-3 (2006–2010) 及以后使用10秒间隔，其他时期使用5秒间隔
-      const interval = (currentPeriod === '2006–2010' || currentPeriod === '2010–2017') ? 10000 : 5000;
-      console.log(`⏱️ WanderingCharacter: Setting evaluation interval to ${interval}ms for period: ${currentPeriod}`);
-      trajectorySystemRef.current.setEvaluationInterval(interval);
+    if (trajectorySystemRef.current && currentPeriod) {
+      // 通知TrajectorySystem当前时期，它会自动处理评估间隔和启用状态
+      console.log(`🕐 WanderingCharacter: Period changed to ${currentPeriod}, notifying TrajectorySystem`);
+      trajectorySystemRef.current.setPeriod(currentPeriod);
     }
   }, [currentPeriod]);
 

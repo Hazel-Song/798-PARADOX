@@ -1,36 +1,276 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 798悖论：空间、权力与记忆的互动叙事
 
-## Getting Started
+*The 798 Paradox: An Interactive Narrative of Space, Power, and Memory*
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 作品概念 | Artistic Concept
+
+### 关于798艺术区
+
+北京798艺术区，曾是国营798电子工业厂的工业遗址，在21世纪初经历了一场独特的城市空间转型。从1995年到2017年的二十余年间，艺术家、政府、资本和公众在这片废墟上进行了一场复杂的博弈——废弃厂房被艺术家占据、改造，继而被政府拆除、规范，最终演变为官方认可的文化创意产业园区。
+
+这个过程充满了悖论：艺术家追求自由却不断遭遇规训，政府试图控制却反而催生了更强的抗议，空间在被"保护"的过程中失去了原有的生命力。798的历史不仅是一段城市更新的记录，更是当代中国艺术生态、权力关系和文化政治的缩影。
+
+### 作品理念
+
+**《798悖论》**是一个交互式AI叙事系统，通过模拟艺术家、政府和访客三种角色在四个历史时期（1995-2017）的互动，让观众体验这段充满张力的历史。作品不提供单一的叙事视角，而是创造一个动态的、开放的系统，让每次互动都生成独特的历史图景。
+
+这是一件关于**空间政治**的作品——观众不仅是旁观者，更是这段历史的参与者和重构者。通过AI生成的实时评论、动态的视觉符号和不断变化的空间关系，作品探讨了以下核心问题：
+
+- **谁定义了空间的意义？** 艺术家的创造、政府的规训、资本的渗透，还是公众的消费？
+- **抗议如何产生？** 当权力试图抹除某种存在时，反而使其获得了更强的符号性。
+- **记忆如何被重写？** 每个时期的叙事都会被后续时期重新定义和覆盖。
+
+### 互动机制
+
+作品分为四个历史时期，每个时期对应不同的互动逻辑和视觉语言：
+
+#### **第一阶段：沉默与重建（1995-2002）**
+*Silence and Reconstruction*
+
+废墟中的先行者。艺术家在空无一人的工业遗址中游荡，用AI生成的"观察"和"思考"标记空间。每当同一地点积累两个以上的评价标签，就会自发形成一个工作室圆圈——这是艺术生态自组织形成的隐喻。
+
+**视觉语言：** 米黄色标签、白色光晕，象征初期的纯粹性和脆弱性。
+
+---
+
+#### **第二阶段：对抗与命名（2002-2006）**
+*Confrontation and Naming*
+
+权力介入。政府角色开始出现，对形成的工作室进行评估：要么"拆除"（demolished），要么"通过"（passed）。通过的区域变为橙色圆圈，象征被规训和合法化的空间。但艺术家无法进入这些被"保护"的区域——这揭示了一个悖论：通过审查获得的生存权，反而限制了创作的自由。
+
+**互动：** 观众可以通过"政府输入系统"影响政府的决策规则，体验权力的运作逻辑。
+
+**视觉语言：** 橙色圆圈、黑色政府触及点，象征权力的印记和规训的暴力。
+
+---
+
+#### **第三阶段：自由的幻象（2006-2010）**
+*Illusion of Freedom*
+
+商业化与抗议。政府评估的对象从工作室圆圈转向个体艺术家评论，通过审查的标签变为黑色（象征被收编），而被拆除的通过区域中的标签变为"抗议标签"——粉色圆心、白色放射线、扩张的圆形，象征被压制后更强烈的反抗。同时，"游荡的粉色点"（wandering pink dots）开始出现，它们被公众舆论热度吸引，聚集在抗议标签周围，形成一种混乱而富有生命力的视觉场景。
+
+**核心矛盾：** 798在这一时期获得了国际声誉，但艺术家的自主性却在逐渐丧失。
+
+**视觉语言：** 粉色抗议圆、游荡的粉点、辩论对话框，象征反抗的声音和商业化的侵蚀。
+
+---
+
+#### **第四阶段：迁徙与循环（2010-2017）**
+*Migration and Circulation*
+
+系统的胜利。艺术家停止创作评论，只是游荡——他们的声音已经失效。政府触及的每一个点都变为黑色，外围环绕着红色和橙色的双重光晕，象征权力的全面渗透。抗议标签的视觉语言更加极端：红色圆心、红色边框、纯白放射线，像是最后的呐喊。Passed圆的颜色加深为深红，点阵变为橙色——空间被彻底规训，798不再是艺术家的798，而是一个符号化的、可供消费的"文化产品"。
+
+**视觉语言：** 深红底色、黑色政府点、红色抗议圆心，象征最终的收编和抗议的终结。
+
+---
+
+## 视觉符号系统 | Visual Symbology
+
+### 色彩语言
+
+- **米黄/白色（#FFF5DB）：** 初期的纯粹、未被定义的状态
+- **橙色（#FF8126）：** 权力的认可、规训后的合法性
+- **黑色（#000000）：** 政府触及、审查的印记
+- **粉色（#F328A5）：** 抗议、反抗的声音
+- **红色（#EB1139, #D5090C）：** 暴力、终结、系统的胜利
+
+### 形态语言
+
+- **评论标签（Comment Tags）：** 艺术家的思考和观察，用AI实时生成
+- **工作室圆圈（Studio Circles）：** 艺术生态的自组织形成
+- **抗议标签（Protest Tags）：** 被压制后的反抗，具有扩张的圆形和放射线
+- **游荡的点（Wandering Dots）：** 粉色点象征公众/消费力量的介入
+- **政府触及点（Government-touched Points）：** 权力留下的痕迹
+
+### 空间关系
+
+12×8网格系统将798艺术区抽象为一个可计算的空间。每个网格单元被赋予了特定的关键词（如"abandoned factory"、"exhibition space"、"demolished area"），这些关键词影响AI生成的评论内容。空间不再是中性的背景，而是权力、资本和创作博弈的场域。
+
+---
+
+## 技术实现与AI叙事 | Technical Architecture & AI Narrative
+
+### AI驱动的实时叙事生成
+
+作品的核心是基于OpenAI GPT的AI评价系统。每个艺术家角色被赋予独特的"人格"（personality），包括背景、风格和批判视角。当艺术家移动到网格的某个位置时，AI会根据以下因素实时生成评论：
+
+- **艺术家人格：** 不同艺术家有不同的表达风格和关注点
+- **位置关键词：** 每个网格单元的场所特征
+- **历史时期：** 不同时期的社会文化语境
+- **周边环境：** 附近的工作室、政府活动等
+
+AI不是预设好的文本，而是真正的"创作者"，每次互动都是独一无二的。这种不确定性模拟了真实历史的复杂性和偶然性。
+
+### 系统架构
+
+#### **前端技术栈**
+- **Next.js 15.5** + **React 19** + **TypeScript** - 现代化全栈框架
+- **Tailwind CSS 4** - 实时响应式样式系统
+- **Framer Motion 12** + **GSAP 3** - 高性能动画引擎
+- **Canvas 2D API** - 实时渲染12×8网格、工作室圆圈和动态效果
+
+#### **核心系统**
+
+**1. 网格系统（Grid System）**
+- 12×8固定网格，每个单元关联场所关键词
+- 动态坐标转换（网格坐标 ↔ 像素坐标）
+- 标签计数与工作室自发形成逻辑
+- 限制区域（Restricted Zones）管理，防止艺术家进入政府控制区
+
+**2. 角色运动系统（Trajectory System）**
+- 基于A*算法的路径规划，支持障碍物避让
+- 人格驱动的运动模式（不同艺术家有不同的移动速度和偏好）
+- 时期特定行为（Period-4艺术家停止评价，只游荡）
+- 实时评价间隔控制（Period 1-2: 5秒，Period 3-4: 10秒）
+
+**3. AI评价队列（AI Evaluation Service）**
+- 请求队列管理，防止API速率限制
+- 2秒延迟，确保系统稳定性
+- 置信度评分（Confidence Scoring）
+- 上下文感知的Prompt工程
+
+**4. 政府评估系统（Government Evaluation System）**
+- 自主目标选择（工作室圆圈 vs 评论标签）
+- 时期特定评估逻辑：
+  - Period-2: 评估工作室，10秒评估时间
+  - Period-3: 评估评论标签，3秒评估时间
+- 打字机动画（Typewriter Animation）显示政府输入原则
+- 状态快照（State Snapshot）支持时间旅行
+
+**5. 抗议标签与游荡点系统**
+- 抗议标签自动标记（拆除区域内的标签）
+- 扩张圆动画（50-100px随机半径，0.8秒缓动曲线）
+- 粉色游荡点（Period-3专属）：
+  - 随公众舆论热度增加而生成（每次+2-5个点）
+  - 目标导向移动 + 布朗运动（Brownian Motion）
+  - 边界碰撞检测与反弹
+- 粉色涟漪动画（Pink Ripple Effect）
+
+**6. 时间旅行系统（Time Travel System）**
+- 状态快照保存（tags、circles、artists、vitality、heat等）
+- 向后旅行需要确认对话框
+- 政府角色重置（清除评估进度）
+- 粉色点清理（防止重复生成）
+
+#### **数据流**
+
+```
+用户交互 → MapLayout（状态中心）
+  ├─→ Timeline（时期切换）
+  ├─→ WanderingCharacter（艺术家运动 + AI评价）
+  │     └─→ TrajectorySystem（路径规划）
+  │     └─→ AIEvaluationService（评论生成）
+  ├─→ WanderingGovernment（政府评估）
+  │     └─→ onStudioEvaluation（拆除/通过决策）
+  ├─→ CommentTags（标签渲染 + 抗议标签 + 游荡点）
+  ├─→ StudioCircles（工作室圆圈 + Canvas渲染）
+  └─→ InputInteractionSystem（政府输入规则）
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+#### **性能优化**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Turbopack** - Next.js官方高性能构建工具
+- **Canvas渲染** - 使用`requestAnimationFrame`实现60fps流畅动画
+- **懒加载轨迹生成** - 按需计算路径，减少内存占用
+- **Map结构标签计数** - O(1)时间复杂度的工作室形成检测
+- **Ref通信** - 使用`useImperativeHandle`实现组件间高效通信
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 艺术性与技术性的统一 | Unity of Art and Technology
 
-To learn more about Next.js, take a look at the following resources:
+这件作品试图在艺术表达和技术实现之间找到平衡：
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **AI不是工具，而是合作者：** 生成的文本不是装饰，而是作品叙事的核心
+- **代码即雕塑：** 12×8网格系统、轨迹算法、状态机逻辑本身就是对798历史的一种抽象建模
+- **互动即政治：** 观众的每一次点击、每一次输入，都在重新书写这段历史
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+798艺术区的历史是复杂的、矛盾的，充满了各方力量的博弈。这件作品不试图提供答案，而是邀请观众进入这个系统，体验、思考，并在互动中生成自己的理解。
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 如何运行 | How to Run
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 环境要求
+
+- Node.js 18+
+- OpenAI API Key（用于AI评论生成）
+
+### 安装与启动
+
+```bash
+# 克隆仓库
+git clone https://github.com/your-username/798demo.git
+cd 798demo
+
+# 安装依赖
+npm install
+
+# 配置环境变量
+cp .env.example .env.local
+# 编辑 .env.local，添加你的 OPENAI_API_KEY
+
+# 启动开发服务器
+npm run dev
+
+# 访问 http://localhost:3000
+```
+
+### 构建生产版本
+
+```bash
+npm run build
+npm run start
+```
+
+---
+
+## 项目结构 | Project Structure
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── homepage/           # 入口页面（故障艺术效果）
+│   ├── proceeding/         # 主交互体验
+│   └── api/                # API路由（AI生成）
+│
+├── components/ui/          # 22个UI组件
+│   ├── MapLayout.tsx       # 核心容器（1300+行）
+│   ├── WanderingCharacter.tsx  # 艺术家运动
+│   ├── WanderingGovernment.tsx # 政府角色
+│   ├── CommentTags.tsx     # 评论标签渲染
+│   ├── StudioCircles.tsx   # 工作室圆圈
+│   └── ...
+│
+├── lib/                    # 核心逻辑
+│   ├── ai/                 # AI评价服务
+│   ├── character/          # 角色运动与轨迹
+│   ├── map-grid/           # 网格系统
+│   └── data/               # 时间线数据
+│
+└── types/                  # TypeScript类型定义
+```
+
+---
+
+## 关于作者 | About
+
+这件作品是对798艺术区历史的致敬，也是对当代艺术生态和权力关系的反思。希望通过这个互动系统，让更多人了解这段复杂而独特的历史。
+
+**开发者：** Song Hanchao
+**年份：** 2025
+**技术支持：** OpenAI GPT, Next.js, React
+
+---
+
+## 许可 | License
+
+MIT License - 欢迎学习、修改和分享
+
+---
+
+## 致谢 | Acknowledgments
+
+感谢所有为798艺术区历史记录和研究做出贡献的学者、艺术家和档案工作者。这件作品的灵感来源于他们的努力。

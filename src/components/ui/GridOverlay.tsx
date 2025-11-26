@@ -27,7 +27,7 @@ export default function GridOverlay({
 
     // 优先检查是否为工作室区域
     if (studioAreas.has(gridKey)) {
-      return { type: 'studio', color: 'rgba(138, 43, 226, 0.15)', textColor: '#8A2BE2', name: 'Studio' };
+      return { type: 'studio', color: 'rgba(249, 240, 211, 0.15)', textColor: '#F9F0D3', name: 'Studio' };
     }
 
     // 统一使用废弃工厂网格系统（不再区分时期）
@@ -151,6 +151,42 @@ export default function GridOverlay({
           ctx.stroke();
         }
       }
+
+      // 绘制十字之间的细虚线连接
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([2, 4]); // 虚线模式：2px实线，4px间隔
+
+      // 水平虚线
+      for (let y = 0; y <= 8; y++) {
+        for (let x = 0; x < 12; x++) {
+          const startX = x * cellWidth + Math.min(cellWidth, cellHeight) * 0.1;
+          const endX = (x + 1) * cellWidth - Math.min(cellWidth, cellHeight) * 0.1;
+          const pointY = y * cellHeight;
+
+          ctx.beginPath();
+          ctx.moveTo(startX, pointY);
+          ctx.lineTo(endX, pointY);
+          ctx.stroke();
+        }
+      }
+
+      // 垂直虚线
+      for (let x = 0; x <= 12; x++) {
+        for (let y = 0; y < 8; y++) {
+          const pointX = x * cellWidth;
+          const startY = y * cellHeight + Math.min(cellWidth, cellHeight) * 0.1;
+          const endY = (y + 1) * cellHeight - Math.min(cellWidth, cellHeight) * 0.1;
+
+          ctx.beginPath();
+          ctx.moveTo(pointX, startY);
+          ctx.lineTo(pointX, endY);
+          ctx.stroke();
+        }
+      }
+
+      // 重置线条样式
+      ctx.setLineDash([]);
 
       // 图例已移除 - 不再显示
     };

@@ -89,8 +89,8 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
 
-  // 只在2002-2006和2006-2010期间且被激活时显示
-  const shouldShow = isActive && (currentPeriod === '2002-2006' || currentPeriod === '2006–2010');
+  // 只在2002-2006、2006-2010和2010-2017期间且被激活时显示
+  const shouldShow = isActive && (currentPeriod === '2002-2006' || currentPeriod === '2006–2010' || currentPeriod === '2010–2017');
 
   // 监听时期变化，清理内部状态
   useEffect(() => {
@@ -271,13 +271,14 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
     if (!shouldShow || isPaused) return;
 
     const isPeriod3 = currentPeriod === '2006–2010';
-    const evaluationTime = isPeriod3 ? 3000 : 10000; // period-3中3秒评估，period-2中10秒评估
+    const isPeriod4 = currentPeriod === '2010–2017';
+    const evaluationTime = (isPeriod3 || isPeriod4) ? 3000 : 10000; // period-3和period-4中3秒评估，period-2中10秒评估
 
     const interval = setInterval(() => {
       // 如果当前没有评估任务，寻找下一个目标
       if (!currentEvaluation) {
-        if (isPeriod3) {
-          // period-3：评估commentTags
+        if (isPeriod3 || isPeriod4) {
+          // period-3和period-4：评估commentTags
           const nextTag = findNextCommentTag();
           if (nextTag) {
             console.log('🏛️ Government targeting comment tag:', nextTag.id);
@@ -308,7 +309,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
         if (arrived) {
           console.log('🏛️ Government arrived at target:', currentEvaluation.circleId);
 
-          if (!isPeriod3) {
+          if (currentPeriod === '2002-2006') {
             // period-2：创建覆盖圆形
             const targetCircle = studioCircles.find(c => c.id === currentEvaluation.circleId);
             if (targetCircle) {
@@ -335,8 +336,8 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
       if (currentEvaluation.status === 'evaluating' && currentEvaluation.startTime) {
         const elapsed = Date.now() - currentEvaluation.startTime;
         if (elapsed >= evaluationTime) {
-          if (isPeriod3) {
-            // period-3：评估完成后标记commentTag
+          if (isPeriod3 || isPeriod4) {
+            // period-3和period-4：评估完成后标记commentTag
             console.log(`🏛️ Government evaluated comment tag:`, currentEvaluation.circleId);
 
             // 通知父组件评估结果
@@ -486,7 +487,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
       // 绘制扩展圆动画 - 仅在评估过程中显示
       if (currentEvaluation?.status === 'evaluating') {
         ctx.save();
-        ctx.strokeStyle = '#FF550F';
+        ctx.strokeStyle = currentPeriod === '2010–2017' ? '#EB1139' : '#FF550F';
         ctx.lineWidth = 2;
         // 透明度随半径增加而减少
         const alpha = Math.max(0.2, 1 - expandingCircleRadiusRef.current / expandingCircleMaxRadius);
@@ -569,32 +570,37 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
             <div
               className="absolute text-[12px] font-mono whitespace-nowrap"
               style={{
-                color: '#FF550F',
+                color: currentPeriod === '2010–2017' ? '#EB1139' : '#FF550F', // period-4使用#EB1139，其他时期使用#FF550F
                 bottom: '18px',
                 left: '50%',
                 transform: 'translateX(-50%)',
-                textShadow: '0 0 4px rgba(255, 85, 15, 0.6)'
+                textShadow: currentPeriod === '2010–2017'
+                  ? '0 0 4px rgba(235, 17, 57, 0.6)' // period-4使用#EB1139阴影
+                  : '0 0 4px rgba(255, 85, 15, 0.6)' // 其他时期使用#FF550F阴影
               }}
             >
               REGULATOR
             </div>
 
-            {/* #FF550F色正棱形 - 正方形旋转45度 */}
+            {/* #FF550F色或#EB1139色正棱形 - 正方形旋转45度 */}
             <div
               className="w-[10px] h-[10px]"
               style={{
-                backgroundColor: '#FF550F',
-                filter: 'drop-shadow(0 0 3px rgba(255, 85, 15, 0.6))',
-                transform: 'rotate(45deg)'
+                backgroundColor: currentPeriod === '2010–2017' ? '#EB1139' : '#FF550F',
+                filter: currentPeriod === '2010–2017'
+                  ? 'drop-shadow(0 0 3px rgba(235, 17, 57, 0.6))'
+                  : 'drop-shadow(0 0 3px rgba(255, 85, 15, 0.6))',
+                transform: 'rotate(45deg)',
+                border: currentPeriod === '2010–2017' ? '1px solid #FFFFFF' : 'none'
               }}
             />
 
-            {/* 评估评论 - #FF550F色底，白色字，样式与艺术家评论一致 */}
+            {/* 评估评论 - period-4使用#EB1139，其他时期使用#FF550F */}
             {currentEvaluation?.status === 'evaluating' && (
               <div
                 className="absolute bg-white/60 px-2 py-1 text-[7px] leading-tight text-gray-800 whitespace-normal pointer-events-auto"
                 style={{
-                  backgroundColor: '#FF550F',
+                  backgroundColor: currentPeriod === '2010–2017' ? '#EB1139' : '#FF550F',
                   color: 'white',
                   backdropFilter: 'blur(4px)',
                   minHeight: 'auto',
@@ -615,7 +621,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
                 <div
                   className="absolute w-0.5 h-[15px] transition-opacity duration-500 opacity-100"
                   style={{
-                    backgroundColor: '#FF550F',
+                    backgroundColor: currentPeriod === '2010–2017' ? '#EB1139' : '#FF550F',
                     backdropFilter: 'blur(4px)',
                     left: '50%',
                     top: '100%',
@@ -630,7 +636,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
               <div
                 className="absolute bg-white/60 px-2 py-1 text-[7px] leading-tight text-gray-800 whitespace-nowrap pointer-events-auto"
                 style={{
-                  backgroundColor: '#FF550F',
+                  backgroundColor: currentPeriod === '2010–2017' ? '#EB1139' : '#FF550F',
                   color: 'white',
                   backdropFilter: 'blur(4px)',
                   minHeight: 'auto',
@@ -645,7 +651,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
                 <div
                   className="absolute w-0.5 h-[15px] transition-opacity duration-500 opacity-100"
                   style={{
-                    backgroundColor: '#FF550F',
+                    backgroundColor: currentPeriod === '2010–2017' ? '#EB1139' : '#FF550F',
                     backdropFilter: 'blur(4px)',
                     left: '50%',
                     top: '100%',
@@ -672,7 +678,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
           <div
             className="absolute bg-white/60 px-2 py-1 text-[7px] leading-tight text-gray-800 whitespace-nowrap pointer-events-auto"
             style={{
-              backgroundColor: '#FF550F',
+              backgroundColor: currentPeriod === '2010–2017' ? '#EB1139' : '#FF550F',
               color: 'white',
               backdropFilter: 'blur(4px)',
               minHeight: 'auto',
@@ -687,7 +693,7 @@ const WanderingGovernment = forwardRef<WanderingGovernmentRef, WanderingGovernme
             <div
               className="absolute w-0.5 h-[15px] transition-opacity duration-500 opacity-100"
               style={{
-                backgroundColor: '#FF550F',
+                backgroundColor: currentPeriod === '2010–2017' ? '#EB1139' : '#FF550F',
                 backdropFilter: 'blur(4px)',
                 left: '50%',
                 top: '100%',
